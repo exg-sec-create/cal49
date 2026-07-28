@@ -253,6 +253,19 @@ async function sbGet(){
 
 const STORAGE_KEY = 'cal49_shared_v1';
 
+function applyPayload(p){
+  if(!p || typeof p !== 'object')return false;
+  if(p.adjs)adjs=p.adjs;
+  if(p.settings)settings=p.settings;
+  if(p.allOffPeriods)allOffPeriods=p.allOffPeriods;
+  if(p.holidayEnabled){
+    holidayEnabled=Array.isArray(p.holidayEnabled)?p.holidayEnabled:[true,true,true,true];
+  }
+  if(p.eventList)eventList=p.eventList;
+  dataLoaded=true;
+  return true;
+}
+
 async function load(){
   // ステータス表示
   const si = document.getElementById('sync-info');
@@ -261,25 +274,22 @@ async function load(){
     const result = await sbGet();
     if(result && result.payload){
       const p = result.payload;
-      if(p.adjs)adjs=p.adjs;
-      if(p.settings)settings=p.settings;
-      if(p.allOffPeriods)allOffPeriods=p.allOffPeriods;
-      if(p.holidayEnabled){const h=p.holidayEnabled;holidayEnabled=Array.isArray(h)?h:[true,true,true,true];}
-      if(p.eventList)eventList=p.eventList;
-      dataLoaded=true;
+      applyPayload(p);
       const t = p.updatedAt ? new Date(p.updatedAt).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '不明';
       if(si) si.textContent = `✓ 最終更新: ${p.updatedBy||'不明'} (${t})`;
       // キャッシュ保存
-      try{ localStorage.setItem('cal49_cache', result.value); }catch(e){}
+      try{ localStorage.setItem('cal49_cache', JSON.stringify(p)); }catch(e){}
     } else {
       // キャッシュフォールバック
       const c = localStorage.getItem('cal49_cache');
-      if(c){ const p=JSON.parse(c); applyPayload(p); if(false){ if(p.settings)settings=p.settings; if(p.allOffPeriods)allOffPeriods=p.allOffPeriods; if(p.holidayEnabled)holidayEnabled=p.holidayEnabled; if(p.eventList)eventList=p.eventList; dataLoaded=true; }
+      if(c){
+        try{ applyPayload(JSON.parse(c)); }catch(e){}
+      }
       if(si) si.textContent = dataLoaded ? '📦 キャッシュから表示' : '（データなし）';
     }
   }catch(e){
     const c = localStorage.getItem('cal49_cache');
-    if(c){ try{ const p=JSON.parse(c); applyPayload(p); if(false){ if(p.settings)settings=p.settings; if(p.allOffPeriods)allOffPeriods=p.allOffPeriods; if(p.holidayEnabled)holidayEnabled=p.holidayEnabled; if(p.eventList)eventList=p.eventList; dataLoaded=true; }catch(e2){} }
+    if(c){ try{ applyPayload(JSON.parse(c)); }catch(e2){} }
     if(si) si.textContent = dataLoaded ? '⚠ オフライン（キャッシュ表示）' : '⚠ データを取得できません';
   }
 }
