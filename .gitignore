@@ -1,0 +1,10 @@
+# Local/deployment Firebase configuration. The web API key is public at runtime,
+# but keeping environment-specific values out of Git prevents accidental reuse.
+firebase-config.json
+
+# Service-account keys and common local secret files must never be committed.
+*-firebase-adminsdk-*.json
+service-account*.json
+.env
+.env.*
+!.env.example

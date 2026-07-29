@@ -1,154 +1,59 @@
 # 第49期 年間休日カレンダー
 
-## ページ構成
+- `index.html`: Googleログインが必要な編集ページ
+- `staff.html`: Firebase上のカレンダーを表示する公開・閲覧専用ページ
 
-- `index.html`: Google ログイン後に休日・有給・行事を編集する管理者（編集者）ページです。
-- `staff.html`: 管理者が保存したカレンダーを読み込む閲覧専用ページです。編集機能はありません。
+## セキュリティ上の前提
 
-管理者ページの「統計」から「部署別カレンダーを印刷・PDF保存」を選ぶと、各カレンダーを1ページずつ配布用に出力できます。
-両ページのヘッダーから相互に移動できます。管理者ページの「設定」では、管理画面へのログインを許可するGoogleアカウントのメールアドレスを追加・削除できます。
+Firebase Web APIキー、Firebase `databaseURL`、Google OAuthクライアントIDは、ブラウザへ配信されるため**秘密情報ではありません**。値をHTMLから別ファイルへ移しても、利用者は開発者ツールで確認できます。データへのアクセス制御は、Firebase AuthenticationとRealtime Database Security Rulesで必ず実施してください。
 
-main
+一方、OAuthクライアントシークレット、サービスアカウント秘密鍵、秘密鍵を含むJSON、管理用アクセストークンは秘密情報です。これらはこの静的サイトに配置せず、Gitにもコミットしないでください。
 
-## Google ログインの設定
+現在の設計では、`cal49/shared` はスタッフページのために公開読み取り、書き込みはFirebase Authenticationで認証された許可メールだけに限定します。カレンダーに個人情報や社外秘情報を保存しないでください。非公開データが必要な場合は、スタッフページにも認証を追加してRulesの `.read` を認証必須に変更してください。
 
-管理画面 (`index.html`) は Google Identity Services を使用しています。ログイン画面で
-`Error 400: origin_mismatch` が表示される場合、Firebase や Supabase の問題ではなく、
-Google Cloud の OAuth クライアントに現在のサイトの生成元が登録されていません。
+## Firebase設定
 
-1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials) を開く。
-2. `index.html` の `GOOGLE_CLIENT_ID` と同じ「ウェブ アプリケーション」OAuth 2.0
-   クライアントを開く。
-3. **承認済みの JavaScript 生成元**に、ログイン画面下部に表示される生成元を追加する。
-   例: `https://example.github.io`（パス、末尾の `/` は含めない）。
-4. 保存し、設定反映後にブラウザを再読み込みする。
+### Firebase Hosting
 
-生成元はスキーム・ホスト・ポートが完全一致する必要があります。本番 URL とローカル開発
-URL (`http://localhost:PORT`) はそれぞれ個別に登録してください。「承認済みのリダイレクト
-URI」ではなく「承認済みの JavaScript 生成元」への登録が必要です。
+Firebase Hostingの `/__/firebase/init.json` を利用するため、追加ファイルは不要です。
 
-### 切り分け
+### その他の静的ホスティング／ローカル開発
 
-- Google の画面に遷移する前に `origin_mismatch` になる: 上記 OAuth 生成元設定。
-- Google ボタンが出ない: `accounts.google.com/gsi/client` のブロック、通信、ブラウザ設定。
-- 認証後に「アクセス権限がありません」になる: `index.html` の `ALLOWED_EMAILS`。
-- 認証後に保存できない: Firebase Realtime Database が有効で、`cal49/shared` を管理者ページから読み書きできる Security Rules になっているか確認する。
-
-管理者一覧のクラウド取得に失敗した場合も「確認中」のまま停止せず、5秒後にHTML内の
-初期管理者一覧を使ってGoogleログインを開始します。管理画面自体は許可されたGoogle
-アカウントで保護されるため共通パスワードは重ねて要求しません。共通PIN `5005` は、
-管理画面ログインではなく「部署別カレンダーを印刷・PDF保存」の確認にのみ使用します。
-
-> OAuth クライアント ID は公開される識別子であり HTML 内に置けますが、クライアント
-> シークレットは絶対にコミットしないでください。
-
-## Firebase の共有データ
-
-管理者ページと閲覧ページは、Firebase Hosting が提供する `/__/firebase/init.json` から
-同じプロジェクトの設定を取得し、Realtime Database の `cal49/shared` にカレンダーを保存・
-読み込みします。このため、端末ごとのローカルキャッシュではなく、全員が同じ最新データを
-参照できます。ローカルキャッシュは通信できない場合の表示・保存待ち用途にだけ使用します。
-
-### 「クラウド未接続」と表示される場合
-
-Firebase Hosting 以外（GitHub Pages、通常のWebサーバー、ローカルサーバーなど）では
-`/__/firebase/init.json` が提供されないため、追加設定が必要です。
-
-codex
-以下の順番で設定してください。
-
-#### 1. FirebaseプロジェクトとWebアプリを用意する
-
-1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成または選択する。
-2. 「プロジェクトの設定」→「全般」→「マイアプリ」でWebアプリ（`</>`）を追加する。
-3. 表示されたFirebase SDK設定の `apiKey` を控える。APIキーはWebアプリに含める識別情報であり、
-   アクセス制御は後述のAuthenticationとSecurity Rulesで行う。
-
-#### 2. Realtime Databaseを作成する
-
-1. 「ビルド」→「Realtime Database」→「データベースを作成」を選ぶ。
-2. 利用者に近いロケーションを選ぶ。
-3. 最初は **ロックモード** を選ぶ（テストモードの全公開ルールをそのまま運用しない）。
-4. 作成後、データ画面上部のURLを控える。URLはプロジェクトやロケーションにより
-   `https://PROJECT_ID-default-rtdb.firebaseio.com` または
-   `https://PROJECT_ID.REGION.firebasedatabase.app` の形式になる。
-
-#### 3. GoogleログインをFirebase Authenticationで有効にする
-
-管理画面のGoogleログインと、Realtime Databaseへの書き込み許可は別の設定です。
-
-1. 「ビルド」→「Authentication」→「始める」を選ぶ。
-2. 「Sign-in method」から **Google** を有効にし、プロジェクトのサポートメールを設定する。
-3. 「Authentication」→「Settings」→「Authorized domains」に公開先のホスト名を追加する。
-   例: `example.github.io`。ここにはスキームやパスを含めない。
-4. Google Cloud Console側のOAuthクライアントにも、前述の「承認済みのJavaScript生成元」を設定する。
-
-アプリはGoogle Identity ServicesのIDトークンをFirebase Authenticationのトークンに交換し、
-管理画面からの保存時だけ認証トークンをRealtime Database REST APIへ送信します。閲覧者ページは
-ログインなしで読み込むため、Rulesでは `cal49/shared` の読み取りだけを公開します。
-
-#### 4. Firebase設定ファイルを配置する（Firebase Hosting以外）
-
-1. `firebase-config.example.json` を `firebase-config.json` という名前でコピーする。
-2. `apiKey` に手順1のWeb APIキー、`databaseURL` に手順2のURLを設定する。
-3. `firebase-config.json` を `index.html`、`staff.html` と同じ場所へ公開する。
-
-```json
-{
-  "apiKey": "FirebaseのWeb APIキー",
-  "databaseURL": "https://PROJECT_ID-default-rtdb.firebaseio.com"
-}
+```sh
+cp firebase-config.example.json firebase-config.json
 ```
 
-Firebase Hostingでは `/__/firebase/init.json` がこれらの値を自動提供するため、このファイルは
-不要です。サービスアカウント秘密鍵やOAuthクライアントシークレットは絶対に配置しないでください。
+`firebase-config.json` の `apiKey` と `databaseURL` を対象環境の値に変更します。このファイルは `.gitignore` の対象です。公開時にはHTMLと同じ階層へデプロイしてください。なお、デプロイされた値そのものは公開情報になります。
 
-#### 5. Realtime Database Security Rulesを設定する
+Firebase Consoleでは次を設定してください。
 
-Realtime Databaseの「ルール」タブへ `database.rules.example.json` の内容を貼り付けて
-「公開」を押します。サンプルは次の方針です。
+1. AuthenticationでGoogleプロバイダを有効化する。
+2. AuthenticationのAuthorized domainsへ公開ホストを登録する。
+3. Google Cloud ConsoleでOAuthクライアントの「承認済みのJavaScript生成元」を限定する。
+4. Google Cloud ConsoleのAPIキー制限で、HTTPリファラーを本番オリジンに限定し、利用APIもFirebaseで必要なAPIだけに限定する。
+5. Realtime Databaseへ `database.rules.example.json` を公開する。`.write: true` で運用しない。
+6. App Checkも有効化し、不正クライアントからの濫用に対する追加防御とする（Rulesの代替にはなりません）。
 
-- `cal49/shared` の読み取りは閲覧者ページ向けに公開する。
-- 書き込みはFirebase Authenticationで認証済みかつ、列挙した管理者メールだけに許可する。
-- 保存データに必須項目がない書き込みを拒否する。
-- `cal49/shared` 以外への読み書きを拒否する。
+管理者を変更するときは、`index.html` の初期許可リストと `database.rules.example.json` の書き込み許可メールを同時に更新し、Rulesを再公開してください。ブラウザ側の許可リストだけでは書き込みを保護できません。
 
-管理者を変更する場合、管理画面内の管理者一覧に加えて、Rules内のメールアドレスも追加・削除して
-再公開してください。管理画面の一覧だけを変更してもSecurity Rulesの書き込み権限は変わりません。
-これは、ブラウザから管理者自身がRulesを書き換えられないようにするためです。
+## 漏えい時／今回の移行時に行うこと
 
-> **重要:** `.write: true` は設定しないでください。HTMLでログイン画面を表示していても、第三者は
-> ブラウザを経由せずDatabase URLへ直接リクエストできます。CORS、公開元ドメイン、Google OAuthの
-> JavaScript生成元設定もRealtime Databaseの書き込み認可の代わりにはなりません。
+過去にコミットされたFirebase Web APIキーはGit履歴に残るため、ファイルを削除するだけでは無効化されません。次を実施してください。
 
-#### 6. 動作確認とエラーの見方
+1. Google Cloud Consoleで該当キーの利用状況を確認する。
+2. 未制限なら、まず本番のHTTPリファラーと必要APIに制限する。
+3. 不審な利用がある、または同じキーをサーバー用途にも流用した場合はキーをローテーションする。
+4. OAuthクライアントシークレットやサービスアカウント鍵を入力した可能性があれば、直ちに失効・再発行する（Web APIキーとは扱いが異なります）。
+5. Realtime DatabaseのRules、監査ログ、課金アラートを確認する。
 
-1. 閲覧者ページを開き、「最終更新」または「データなし」と表示されることを確認する。
-2. 許可されたGoogleアカウントで管理画面へログインし、カレンダーを変更する。
-3. 約1秒後に「保存済み」と表示されることを確認する。
-4. 閲覧者ページの「更新」を押し、変更が反映されることを確認する。
+必要なら履歴から値を消去できますが、既に取得済みのクローンからは消せないため、履歴書き換えだけでなく失効・ローテーションを優先してください。
 
-- `Firebase未設定`: `firebase-config.json` の配置場所、JSON形式、`databaseURL` を確認する。
-- `Firebase Authentication用の apiKey が未設定`: `apiKey` を追加する。
-- `OPERATION_NOT_ALLOWED`: Firebase AuthenticationでGoogleプロバイダを有効にする。
-- `HTTP 401`: Firebase Authentication、APIキー、ログインセッションを確認する。
-- `HTTP 403` または `PERMISSION_DENIED`: Security Rulesと管理者メールを確認する。
-- ブラウザConsoleにCORSや通信エラー: Database URL、ネットワーク、ブラウザ拡張機能を確認する。
+## 認証実装について
 
-設定後に画面の「同期」または「更新」を押してください。ブラウザの開発者ツールのConsoleにも
-接続失敗の理由が出力されます。
+Google IDトークンとFirebase IDトークンは、ページのメモリ内だけに保持し、`localStorage` / `sessionStorage` には永続化しません。Firebaseへの書き込みではトークンをURLクエリへ入れず、`Authorization: Bearer` ヘッダーで送信します。
 
-1. Firebase Console で **Realtime Database** を作成する。
-2. `firebase-config.example.json` を `firebase-config.json` という名前でコピーする。
-3. Firebase Console の Realtime Database 画面に表示される URL を `databaseURL` に設定する。
-4. `firebase-config.json` を `index.html`、`staff.html` と同じ場所へ公開する。
-5. Realtime Database の Security Rules で、利用方法に合った `cal49/shared` の読み書きを許可する。
+以前の共通PINは、ブラウザへ配信され公開データにも保存されるため認証要素になりませんでした。印刷機能は既にGoogleログイン後の画面内にあるため、共通PINを廃止しています。
 
-Firebase Hosting を利用している場合は `firebase-config.json` は不要です。この場合は、Firebase
-Console で Realtime Database が作成済みか、プロジェクトに `databaseURL` が設定されているか、
-Security Rules によって REST API の読み書きが拒否されていないかを確認してください。
+## 動作確認
 
-設定後に画面の「同期」または「更新」を押してください。ブラウザの開発者ツールの Console
-にも接続失敗の理由が出力されます。なお、Firebase の Web 設定値や `databaseURL` は公開用の
-識別情報ですが、サービスアカウント鍵やクライアントシークレットは配置しないでください。
-main
+ローカルサーバーで配信し、許可アカウントで編集・保存できること、未許可アカウントや未認証RESTリクエストでは書き込みが拒否されること、スタッフページでは読み取りだけできることを確認してください。
