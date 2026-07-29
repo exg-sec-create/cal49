@@ -152,30 +152,31 @@ td.m-c{font-weight:500;color:#888;}
 }
 .print-area{display:none;}
 
-/* ── 印刷ページ ── */
-.print-page{page-break-after:always;padding:7mm 8mm;font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif;}
+/* ── 配布用カレンダー（1部署につき1ページ） ── */
+@page{size:A4 portrait;margin:5mm;}
+.print-page{page-break-after:always;padding:2mm 3mm;font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif;}
 .print-page:last-child{page-break-after:auto;}
-.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:3mm;padding-bottom:2mm;border-bottom:1.5px solid #222;}
-.print-header h2{font-size:11pt;font-weight:700;letter-spacing:.02em;}
-.print-header p{font-size:7.5pt;color:#555;}
+.print-header{position:relative;display:flex;align-items:center;justify-content:center;height:13mm;margin-bottom:1mm;}
+.print-header h2{font-family:serif;font-size:15pt;font-weight:700;}
+.print-header .dept-label{position:absolute;left:0;top:0;background:#fff1f1;color:#ff3848;border-radius:3mm;padding:1.5mm 4mm;font-size:18pt;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.12);}
 
 /* 凡例 */
-.print-legend{display:flex;gap:6px;margin-bottom:3mm;flex-wrap:wrap;align-items:center;}
+.print-legend{display:none;}
 .print-legend span{font-size:6.5pt;display:flex;align-items:center;gap:2px;color:#444;}
 .print-legend-dot{width:9px;height:9px;border-radius:2px;display:inline-block;flex-shrink:0;}
 
-/* 12ヶ月グリッド：4列×3行 */
-.months-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2.5mm;}
-.month-block{border:0.5px solid #bbb;border-radius:2px;overflow:hidden;}
-.month-block-header{background:#2a2a2a;color:#fff;text-align:center;font-size:7.5pt;font-weight:700;padding:1.5px 0;letter-spacing:.05em;}
+/* 送付イメージと同じ 3列×4行 */
+.months-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm 9mm;}
+.month-block{overflow:hidden;}
+.month-block-header{background:#fff;color:#111;text-align:center;font-family:serif;font-size:10pt;font-weight:700;padding:0 0 1px;}
 .month-cal{display:grid;grid-template-columns:repeat(7,1fr);border-top:0.5px solid #bbb;}
 
 /* ── カレンダーセル ── */
 .mcell{
   text-align:center;
-  font-size:6pt;
-  padding:1.5px 0.5px;
-  min-height:16px;
+  font-family:serif;font-size:7pt;
+  padding:1px 0;
+  min-height:15px;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -186,26 +187,20 @@ td.m-c{font-weight:500;color:#888;}
   font-weight:500;
 }
 /* 空白セル */
-.mcell.ph{background:#f7f7f5;}
+.mcell.ph{background:#fff;}
 /* 曜日ヘッダー */
 .mcell.dow-h{
-  background:#2a2a2a;color:#fff;
+  background:#fff;color:#111;
   font-size:5.5pt;font-weight:700;
   min-height:11px;padding:1px 0;
   border-color:#444;
 }
 /* 平日（デフォルト）*/
 .mcell{background:#ffffff;color:#1a1a1a;}
-/* 定休日（青） */
-.mcell.c-weekly{background:#D6EAFA !important;color:#0C447C !important;}
-/* 祝日（赤） */
-.mcell.c-holiday{background:#FAE0E0 !important;color:#8B1A1A !important;}
-/* 祝日＋定休（緑） */
-.mcell.c-both{background:#D4EDCC !important;color:#1B4209 !important;}
-/* 全休（オレンジ） */
-.mcell.c-alloff{background:#FAE6C0 !important;color:#5A3000 !important;}
-/* 有給（紫） */
-.mcell.c-paid{background:#E2E0FB !important;color:#2E2880 !important;}
+/* 配布見本では休日種別を赤に統一 */
+.mcell.c-weekly,.mcell.c-holiday,.mcell.c-both,.mcell.c-alloff{background:#f10b0b !important;color:#fff !important;}
+/* 有給は日付を消さず紫枠で表示 */
+.mcell.c-paid{background:#fff !important;color:#111 !important;outline:2px solid #8b4cff;outline-offset:-2px;}
 /* 出勤調整（薄グレー） */
 .mcell.c-work{background:#f0f0f0 !important;color:#666 !important;}
 
@@ -219,6 +214,12 @@ td.m-c{font-weight:500;color:#888;}
   line-height:1.1;
   opacity:.9;
 }
+.mcell .paid-mark{font-family:sans-serif;font-size:7pt;font-weight:700;color:#8b4cff;line-height:1;}
+.print-footer{display:grid;grid-template-columns:1fr 1.25fr;gap:25mm;margin-top:3mm;align-items:end;font-family:serif;font-size:7pt;}
+.work-time-swatch{display:inline-block;width:15mm;height:5mm;background:#c9ffd0;vertical-align:middle;margin-right:1mm;}
+.summary-list{display:grid;grid-template-columns:1fr auto;gap:0;}
+.summary-list dt,.summary-list dd{padding:1.5mm 1mm;border-bottom:.5px solid #555;font-weight:700;}
+.summary-list dd{text-align:right;}
 
 /* ── 集計ページ ── */
 .print-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm;margin-bottom:4mm;}
@@ -373,7 +374,7 @@ td.m-c{font-weight:500;color:#888;}
     <thead><tr><th>月</th><th>暦日</th><th>休日</th><th>有給</th><th>労働日</th><th>労働時間</th><th>週平均</th></tr></thead>
     <tbody id="view-tbody"></tbody>
   </table></div>
-  <button class="admin-btn" onclick="showAdminLogin()">🔒 管理者ログイン（印刷）</button>
+  <button class="admin-btn" onclick="showAdminLogin()">🖨️ 部署別カレンダーを印刷・PDF保存</button>
 </div>
 </div>
 
@@ -381,7 +382,7 @@ td.m-c{font-weight:500;color:#888;}
 <div class="admin-overlay" id="admin-overlay" style="display:none;">
   <div class="admin-box">
     <h3>🔒 管理者認証</h3>
-    <p>印刷するにはパスワードを入力してください</p>
+    <p>配布用カレンダーを出力するにはパスワードを入力してください</p>
     <input type="password" id="admin-pw-input" placeholder="パスワード" maxlength="8" onkeydown="if(event.key==='Enter')doAdminLogin()">
     <div class="err" id="admin-err"></div>
     <button onclick="doAdminLogin()">ログイン</button>
@@ -1107,30 +1108,50 @@ function doAdminLogin(){
 /* ===== 印刷エリア構築 ===== */
 function buildPrintArea(){
   let html='';
-  // 部署ごとにページ生成
-  for(let di=0;di<4;di++){
+  // 送付見本の並び順で、1部署ずつ1ページ生成
+  const printOrder=[2,0,1,3];
+  const printNames=['水木休み','水日休み','土日休み','日土変動'];
+  for(const di of printOrder){
     const dname=DEPT_NAMES[di];
-    const target=settings[di].target;
-    // カレンダーページ
+    const summary=yearSummary(di);
     html+=`<div class="print-page">`;
-    html+=`<div class="print-header"><h2>第49期 年間休日カレンダー　${dname}</h2><p>2026年6月1日 〜 2027年5月31日　　目標休日：${target}日</p></div>`;
-    html+=`<div class="print-legend">
-      <span><span class="print-legend-dot" style="background:#D6EAFA;border:0.5px solid #378ADD;"></span>定休日</span>
-      <span><span class="print-legend-dot" style="background:#FAE0E0;border:0.5px solid #E24B4A;"></span>祝日</span>
-      <span><span class="print-legend-dot" style="background:#D4EDCC;border:0.5px solid #639922;"></span>祝日+定休</span>
-      <span><span class="print-legend-dot" style="background:#FAE6C0;border:0.5px solid #BA7517;"></span>全休</span>
-      <span><span class="print-legend-dot" style="background:#E2E0FB;border:0.5px solid #534AB7;"></span>有給</span>
-    </div>`;
+    html+=`<div class="print-header"><span class="dept-label">${printNames[di]}</span><h2>2026〜2027年</h2></div>`;
     html+=`<div class="months-grid">`;
     MONTHS.forEach(([y,m],mi)=>{
-      html+=buildPrintMonth(y,m,di,MN[mi]);
+      html+=buildPrintMonth(y,m,di,`${y}年${MN[mi]}`);
     });
-    html+=`</div></div>`;
-
-    // 集計ページ
-    html+=buildPrintStats(di,dname,target);
+    html+=`</div>${buildPrintFooter(summary)}</div>`;
   }
   document.getElementById('print-area').innerHTML=html;
+}
+
+function yearSummary(di){
+  let off=0,paid=0,work=0,days=0;
+  MONTHS.forEach(([y,m])=>{
+    const dim=new Date(y,m+1,0).getDate(); days+=dim;
+    for(let d=1;d<=dim;d++){
+      const st=finalState(y,m,d,di);
+      if(st.off)off++; else if(st.paid)paid++; else work++;
+    }
+  });
+  const hours=work*7.5;
+  return{off,paid,work,hours,weekly:hours/(days/7)};
+}
+
+function buildPrintFooter(s){
+  const annualHours=Math.round(s.hours*60);
+  const weeklyMinutes=Math.round(s.weekly*60);
+  return `<div class="print-footer">
+    <div><strong>個別労働時間</strong><br><span class="work-time-swatch"></span>7:30</div>
+    <dl class="summary-list">
+      <dt>年間休日数</dt><dd>${s.off}日</dd>
+      <dt>年間有給日数</dt><dd>${s.paid}日</dd>
+      <dt>年間労働日数</dt><dd>${s.work}日</dd>
+      <dt>1日の所定労働時間</dt><dd>7時間30分</dd>
+      <dt>年間労働時間</dt><dd>${Math.floor(annualHours/60)}時間${String(annualHours%60).padStart(2,'0')}分</dd>
+      <dt>週平均労働時間</dt><dd>${Math.floor(weeklyMinutes/60)}時間${String(weeklyMinutes%60).padStart(2,'0')}分</dd>
+    </dl>
+  </div>`;
 }
 
 function buildPrintMonth(y,m,di,label){
@@ -1156,7 +1177,7 @@ function buildPrintMonth(y,m,di,label){
     else if(weekly)cls+='c-weekly';
     const sub=hname||ename;
     html+=`<div class="${cls}">${dd}${sub?`<span class="etag">${sub}</span>`:''}`;
-    if(paid)html+=`<span class="etag">有給</span>`;
+    if(paid)html+=`<span class="paid-mark">有給</span>`;
     html+=`</div>`;
   }
   html+=`</div></div>`;
