@@ -1,8 +1,0 @@
-{
- codex
-  "apiKey": "YOUR_FIREBASE_WEB_API_KEY",
-  "databaseURL": "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com"
-
-  "databaseURL": "https://cal-49-system-default-rtdb.firebaseio.com/"
- main
-}
