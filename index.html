@@ -655,7 +655,7 @@ const DEFAULT_ADJS=[
   }
 ];
 let adjs=DEFAULT_ADJS.map(a=>({...a}));
-let adminPw='1234';
+let adminPw='5005';
 
 function k(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
 
@@ -746,10 +746,19 @@ async function firebaseGet(){
 }
 
 async function loadAllowedEmailAccess(){
-  const result=await firebaseGet();
-  const emails=result?.payload?.allowedEmails;
-  if(Array.isArray(emails) && emails.length){
-    allowedEmails=new Set(emails.map(e=>String(e).trim().toLowerCase()).filter(Boolean));
+  // Firebase が未設定・オフラインでも認証画面を止めない。
+  // 追加管理者の取得を優先しつつ、5秒後にはHTML内の初期リストでログインを続行する。
+  const timeout=new Promise((_,reject)=>
+    setTimeout(()=>reject(new Error('管理者リストの取得がタイムアウトしました')),5000)
+  );
+  try{
+    const result=await Promise.race([firebaseGet(),timeout]);
+    const emails=result?.payload?.allowedEmails;
+    if(Array.isArray(emails) && emails.length){
+      allowedEmails=new Set(emails.map(e=>String(e).trim().toLowerCase()).filter(Boolean));
+    }
+  }catch(e){
+    console.warn('管理者リストを取得できないため初期リストを使用します:',e);
   }
 }
 
