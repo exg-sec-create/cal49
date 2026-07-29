@@ -155,7 +155,7 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans
   <!-- データなし -->
   <div class="no-data" id="no-data" style="display:none;">
     管理者画面で設定を保存すると<br>ここに反映されます。<br><br>
-    <span style="font-size:11px;color:#ccc;">※ 同じデバイス・ブラウザで開いてください</span>
+    <span style="font-size:11px;color:#ccc;">※ 通信状況を確認して「更新」を押してください</span>
   </div>
 
 </div>
@@ -175,7 +175,7 @@ const HOLIDAYS_MASTER={
   "2027-01-11":"成人の日",
   "2027-02-11":"建国記念の日",
   "2027-02-23":"天皇誕生日",
-  "2027-03-20":"春分の日",
+  "2027-03-21":"春分の日",
   "2027-03-22":"春分の日 振替休日",
   "2027-04-29":"昭和の日",
   "2027-05-03":"憲法記念日",
@@ -270,17 +270,25 @@ let eventList=[...DEFAULT_EVENTS.map(e=>({...e}))];
 let dataLoaded=false;
 
 /* ===== クラウドストレージから読み込み（管理版と同じキー） ===== */
-/* ===== Supabase設定 ===== */
-const SUPABASE_URL = 'https://xaaybiqrkohaozixgkay.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhYXliaXFya29oYW96aXhna2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5Njg5NDIsImV4cCI6MjA5NTU0NDk0Mn0.Oup6GDm37XFmCDN8uW2rqKfCmNLcPoSjAcTyrJ1sFWw';
-async function sbGet(){
-  try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/cal49_data?id=eq.shared&select=payload,updated_at,updated_by`,
-      {headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY}});
-    if(!r.ok)throw new Error();
-    const rows=await r.json();
-    return rows.length>0?rows[0]:null;
-  }catch(e){return null;}
+/* ===== Firebase Realtime Database設定（管理版と同じ共有データ） ===== */
+const FIREBASE_DATA_PATH='cal49/shared';
+let firebaseConfigPromise;
+async function getFirebaseConfig(){
+  if(!firebaseConfigPromise){
+    firebaseConfigPromise=fetch('/__/firebase/init.json',{cache:'no-store'}).then(async r=>{
+      if(!r.ok)throw new Error('Firebase設定を取得できません');
+      const config=await r.json();
+      if(!config.databaseURL)throw new Error('Realtime Databaseが設定されていません');
+      return config;
+    });
+  }
+  return firebaseConfigPromise;
+}
+async function firebaseGet(){
+  const config=await getFirebaseConfig();
+  const r=await fetch(`${config.databaseURL}/${FIREBASE_DATA_PATH}.json`,{cache:'no-store'});
+  if(!r.ok)throw new Error('Firebaseから取得できません');
+  return await r.json();
 }
 
 const STORAGE_KEY = 'cal49_shared_v1';
@@ -304,7 +312,7 @@ async function load(){
   const si = document.getElementById('sync-info');
   if(si) si.textContent = '📡 最新データを読み込み中...';
   try{
-    const result = await sbGet();
+    const result = await firebaseGet();
     if(result && result.payload){
       const p = result.payload;
       applyPayload(p);
@@ -378,7 +386,7 @@ function countYearWork(di=dept){
 function cellCls(y,m,d,di=dept){
   const{ao,hol,weekly,adj,off,paid}=finalState(y,m,d,di);
   if(paid)return 'paid';
-  if(adj==='work')return 'work-adj';
+  if(adj==='work')return '';
   if(adj==='off')return 'holiday';
   if(ao)return 'alloff';
   if(hol&&weekly)return 'both';
