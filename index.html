@@ -728,12 +728,19 @@ let firebaseConfigPromise;
 
 async function getFirebaseConfig(){
   if(!firebaseConfigPromise){
-    firebaseConfigPromise=fetch('/__/firebase/init.json',{cache:'no-store'}).then(async r=>{
-      if(!r.ok)throw new Error('Firebase設定を取得できません');
-      const config=await r.json();
-      if(!config.databaseURL)throw new Error('Realtime Databaseが設定されていません');
-      return config;
-    });
+    firebaseConfigPromise=(async()=>{
+      // Firebase Hosting では予約 URL を、GitHub Pages 等では同じ階層の設定ファイルを使う。
+      const urls=['/__/firebase/init.json','firebase-config.json'];
+      for(const url of urls){
+        try{
+          const r=await fetch(url,{cache:'no-store'});
+          if(!r.ok)continue;
+          const config=await r.json();
+          if(config.databaseURL)return config;
+        }catch(e){ /* 次の設定元を試す */ }
+      }
+      throw new Error('Firebase未設定（firebase-config.json を確認してください）');
+    })();
   }
   return firebaseConfigPromise;
 }
@@ -741,7 +748,7 @@ async function getFirebaseConfig(){
 async function firebaseGet(){
   const config=await getFirebaseConfig();
   const r=await fetch(`${config.databaseURL}/${FIREBASE_DATA_PATH}.json`,{cache:'no-store'});
-  if(!r.ok)throw new Error('Firebaseから取得できません');
+  if(!r.ok)throw new Error(`Firebaseから取得できません（HTTP ${r.status}）`);
   return await r.json();
 }
 
@@ -769,7 +776,7 @@ async function firebaseSet(payloadObj, updatedBy){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({payload:payloadObj,updated_by:updatedBy,updated_at:new Date().toISOString()})
   });
-  if(!r.ok)throw new Error('Firebaseに保存できません');
+  if(!r.ok)throw new Error(`Firebaseに保存できません（HTTP ${r.status}）`);
 }
 
 /* ===== クラウド同期 ===== */
@@ -813,6 +820,7 @@ async function saveToCloud(silent){
     // ローカルにもキャッシュ
     try{ localStorage.setItem('cal49_cache', JSON.stringify(payloadObj)); }catch(e){}
   }catch(e){
+    console.error('クラウドへの保存に失敗しました:',e);
     setSyncStatus('offline','⚠ 保存失敗','ローカルに保持中');
     try{ localStorage.setItem('cal49_cache', JSON.stringify(getPayload())); }catch(e2){}
   }
@@ -834,8 +842,9 @@ async function loadFromCloud(){
       setSyncStatus('online','新規データ（クラウド未保存）','');
     }
   }catch(e){
+    console.error('クラウドからの読み込みに失敗しました:',e);
     loadFromCache();
-    setSyncStatus('offline','⚠ オフライン','キャッシュから読み込み済み');
+    setSyncStatus('offline','⚠ クラウド未接続',e.message||'Firebase設定を確認してください');
   }
 }
 

@@ -48,3 +48,22 @@ URI」ではなく「承認済みの JavaScript 生成元」への登録が必�
 同じプロジェクトの設定を取得し、Realtime Database の `cal49/shared` にカレンダーを保存・
 読み込みします。このため、端末ごとのローカルキャッシュではなく、全員が同じ最新データを
 参照できます。ローカルキャッシュは通信できない場合の表示・保存待ち用途にだけ使用します。
+
+### 「クラウド未接続」と表示される場合
+
+Firebase Hosting 以外（GitHub Pages、通常のWebサーバー、ローカルサーバーなど）では
+`/__/firebase/init.json` が提供されないため、追加設定が必要です。
+
+1. Firebase Console で **Realtime Database** を作成する。
+2. `firebase-config.example.json` を `firebase-config.json` という名前でコピーする。
+3. Firebase Console の Realtime Database 画面に表示される URL を `databaseURL` に設定する。
+4. `firebase-config.json` を `index.html`、`staff.html` と同じ場所へ公開する。
+5. Realtime Database の Security Rules で、利用方法に合った `cal49/shared` の読み書きを許可する。
+
+Firebase Hosting を利用している場合は `firebase-config.json` は不要です。この場合は、Firebase
+Console で Realtime Database が作成済みか、プロジェクトに `databaseURL` が設定されているか、
+Security Rules によって REST API の読み書きが拒否されていないかを確認してください。
+
+設定後に画面の「同期」または「更新」を押してください。ブラウザの開発者ツールの Console
+にも接続失敗の理由が出力されます。なお、Firebase の Web 設定値や `databaseURL` は公開用の
+識別情報ですが、サービスアカウント鍵やクライアントシークレットは配置しないでください。
