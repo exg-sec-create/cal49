@@ -552,7 +552,7 @@ const HOLIDAYS_MASTER={
   "2027-01-11":"成人の日",
   "2027-02-11":"建国記念の日",
   "2027-02-23":"天皇誕生日",
-  "2027-03-20":"春分の日",
+  "2027-03-21":"春分の日",
   "2027-03-22":"春分の日 振替休日",
   "2027-04-29":"昭和の日",
   "2027-05-03":"憲法記念日",
@@ -722,45 +722,45 @@ function countYearOff(di=dept){
 
 function updateGlobalBadge(){document.getElementById('global-off').textContent=countYearOff();}
 
-/* ===== Supabase設定 ===== */
-// ★ 下記2行をSupabaseプロジェクトの値に書き換えてください
-const SUPABASE_URL = 'https://xaaybiqrkohaozixgkay.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhYXliaXFya29oYW96aXhna2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5Njg5NDIsImV4cCI6MjA5NTU0NDk0Mn0.Oup6GDm37XFmCDN8uW2rqKfCmNLcPoSjAcTyrJ1sFWw';
+/* ===== Firebase Realtime Database設定 ===== */
+const FIREBASE_DATA_PATH = 'cal49/shared';
+let firebaseConfigPromise;
 
-async function sbGet(){
-  try{
-    const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/cal49_data?id=eq.shared&select=payload,updated_at,updated_by`,
-      {headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY}}
-    );
-    if(!r.ok) throw new Error('fetch failed');
-    const rows = await r.json();
-    return rows.length>0 ? rows[0] : null;
-  }catch(e){ return null; }
+async function getFirebaseConfig(){
+  if(!firebaseConfigPromise){
+    firebaseConfigPromise=fetch('/__/firebase/init.json',{cache:'no-store'}).then(async r=>{
+      if(!r.ok)throw new Error('Firebase設定を取得できません');
+      const config=await r.json();
+      if(!config.databaseURL)throw new Error('Realtime Databaseが設定されていません');
+      return config;
+    });
+  }
+  return firebaseConfigPromise;
+}
+
+async function firebaseGet(){
+  const config=await getFirebaseConfig();
+  const r=await fetch(`${config.databaseURL}/${FIREBASE_DATA_PATH}.json`,{cache:'no-store'});
+  if(!r.ok)throw new Error('Firebaseから取得できません');
+  return await r.json();
 }
 
 async function loadAllowedEmailAccess(){
-  const result=await sbGet();
+  const result=await firebaseGet();
   const emails=result?.payload?.allowedEmails;
   if(Array.isArray(emails) && emails.length){
     allowedEmails=new Set(emails.map(e=>String(e).trim().toLowerCase()).filter(Boolean));
   }
 }
 
-async function sbSet(payloadObj, updatedBy){
-  try{
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/cal49_data`,{
-      method:'POST',
-      headers:{
-        'apikey':SUPABASE_ANON_KEY,
-        'Authorization':'Bearer '+SUPABASE_ANON_KEY,
-        'Content-Type':'application/json',
-        'Prefer':'resolution=merge-duplicates'
-      },
-      body: JSON.stringify({id:'shared',payload:payloadObj,updated_by:updatedBy,updated_at:new Date().toISOString()})
-    });
-    return r.ok||r.status===201||r.status===200;
-  }catch(e){ return false; }
+async function firebaseSet(payloadObj, updatedBy){
+  const config=await getFirebaseConfig();
+  const r=await fetch(`${config.databaseURL}/${FIREBASE_DATA_PATH}.json`,{
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({payload:payloadObj,updated_by:updatedBy,updated_at:new Date().toISOString()})
+  });
+  if(!r.ok)throw new Error('Firebaseに保存できません');
 }
 
 /* ===== クラウド同期 ===== */
@@ -795,8 +795,7 @@ async function saveToCloud(silent){
   if(!silent) setSyncStatus('syncing','保存中...','');
   try{
     const payloadObj = getPayload();
-    const ok = await sbSet(payloadObj, currentUser||'匿名');
-    if(!ok) throw new Error('supabase set failed');
+    await firebaseSet(payloadObj, currentUser||'匿名');
     lastSavedAt = new Date();
     const timeStr = lastSavedAt.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
     setSyncStatus('online',
@@ -813,7 +812,7 @@ async function saveToCloud(silent){
 async function loadFromCloud(){
   setSyncStatus('syncing','データ読み込み中...','');
   try{
-    const result = await sbGet();
+    const result = await firebaseGet();
     if(result && result.payload){
       applyPayload(result.payload);
       const p = result.payload;

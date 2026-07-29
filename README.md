@@ -32,7 +32,14 @@ URI」ではなく「承認済みの JavaScript 生成元」への登録が必�
 - Google の画面に遷移する前に `origin_mismatch` になる: 上記 OAuth 生成元設定。
 - Google ボタンが出ない: `accounts.google.com/gsi/client` のブロック、通信、ブラウザ設定。
 - 認証後に「アクセス権限がありません」になる: `index.html` の `ALLOWED_EMAILS`。
-- 認証後に保存できない: Supabase の URL、キー、RLS ポリシーを確認する。
+- 認証後に保存できない: Firebase Realtime Database が有効で、`cal49/shared` を管理者ページから読み書きできる Security Rules になっているか確認する。
 
 > OAuth クライアント ID は公開される識別子であり HTML 内に置けますが、クライアント
 > シークレットは絶対にコミットしないでください。
+
+## Firebase の共有データ
+
+管理者ページと閲覧ページは、Firebase Hosting が提供する `/__/firebase/init.json` から
+同じプロジェクトの設定を取得し、Realtime Database の `cal49/shared` にカレンダーを保存・
+読み込みします。このため、端末ごとのローカルキャッシュではなく、全員が同じ最新データを
+参照できます。ローカルキャッシュは通信できない場合の表示・保存待ち用途にだけ使用します。
