@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async onerror="window.googleScriptLoadFailed=true"></script>
 <title>第49期 年間休日カレンダー</title>
@@ -341,30 +342,6 @@ td.m-c{font-weight:500;color:#888;}
     </div>
     <button class="add-event-btn" onclick="addEvent()">＋ 1日だけ追加</button>
   </div>
-  <div class="setting-section">
-    <div class="setting-title">管理できる人</div>
-    <div class="hint">Googleログインを許可するメールアドレスを登録します。現在ログイン中のアドレスは削除できません。</div>
-    <div class="special-list" id="admin-email-list"></div>
-    <div class="add-row">
-      <input type="email" id="admin-email-input" placeholder="name@example.com">
-      <button onclick="addAdminEmail()">追加</button>
-    </div>
-    <div id="admin-email-msg" style="font-size:11px;color:#A32D2D;margin-top:4px;min-height:14px;"></div>
-  </div>
-  <div class="setting-section">
-    <div class="setting-title">管理者パスワード変更</div>
-    <div class="pw-setting">
-      <p>現在のパスワード確認後、新しいPINを設定できます</p>
-      <div class="pw-row" style="margin-bottom:4px;">
-        <input type="password" id="pw-current" placeholder="現在のパスワード" maxlength="8">
-      </div>
-      <div class="pw-row">
-        <input type="password" id="pw-new" placeholder="新しいパスワード" maxlength="8">
-        <button onclick="changePw()">変更</button>
-      </div>
-      <div id="pw-msg" style="font-size:11px;color:#A32D2D;margin-top:4px;min-height:14px;"></div>
-    </div>
-  </div>
 </div>
 
 <!-- 統計 -->
@@ -374,20 +351,8 @@ td.m-c{font-weight:500;color:#888;}
     <thead><tr><th>月</th><th>暦日</th><th>休日</th><th>有給</th><th>労働日</th><th>労働時間</th><th>週平均</th></tr></thead>
     <tbody id="view-tbody"></tbody>
   </table></div>
-  <button class="admin-btn" onclick="showAdminLogin()">🖨️ 部署別カレンダーを印刷・PDF保存</button>
+  <button class="admin-btn" onclick="printCalendars()">🖨️ 部署別カレンダーを印刷・PDF保存</button>
 </div>
-</div>
-
-<!-- 管理者ログインオーバーレイ -->
-<div class="admin-overlay" id="admin-overlay" style="display:none;">
-  <div class="admin-box">
-    <h3>🔒 管理者認証</h3>
-    <p>配布用カレンダーを出力するにはパスワードを入力してください</p>
-    <input type="password" id="admin-pw-input" placeholder="パスワード" maxlength="8" onkeydown="if(event.key==='Enter')doAdminLogin()">
-    <div class="err" id="admin-err"></div>
-    <button onclick="doAdminLogin()">ログイン</button>
-    <button class="cancel-btn" onclick="hideAdminLogin()">キャンセル</button>
-  </div>
 </div>
 
 <!-- ===== PRINT AREA ===== -->
@@ -411,6 +376,7 @@ const GOOGLE_CLIENT_ID = '558711705833-u77jpcg1nv47l6kur4dclsaik7s9undt.apps.goo
 let authedUser = null; // ログイン済みユーザー情報
 let googleAuthWaitCount = 0;
 let firebaseAuthToken = null;
+let googleIdentityToken = null;
 
 function currentOrigin(){
   return window.location.origin;
@@ -500,35 +466,14 @@ function handleCredentialResponse(response){
   authedUser = {email, name: displayName};
   currentUser = displayName;
   localStorage.setItem('cal49_username', currentUser);
-  // トークンをセッションに保存（ページ再読み込み時の再認証用）
-  sessionStorage.setItem('cal49_auth_token', response.credential);
-  sessionStorage.setItem('cal49_auth_email', email);
+  // IDトークンは永続化せず、現在のページのメモリ内だけに保持する。
+  googleIdentityToken = response.credential;
   showApp();
 }
 
 function showAuthErr(msg){
   document.getElementById('auth-err').textContent = msg;
   document.getElementById('auth-spinner').textContent = '';
-}
-
-function checkSessionAuth(){
-  // セッション内に認証済みトークンがあればスキップ
-  const token = sessionStorage.getItem('cal49_auth_token');
-  const email = sessionStorage.getItem('cal49_auth_email');
-  if(token && email && allowedEmails.has(email.toLowerCase())){
-    const payload = parseJwt(token);
-    // トークンの有効期限確認（exp: UNIX秒）
-    if(payload && payload.aud === GOOGLE_CLIENT_ID &&
-       ['accounts.google.com','https://accounts.google.com'].includes(payload.iss) &&
-       payload.email_verified && payload.exp * 1000 > Date.now() &&
-       (payload.email || '').toLowerCase() === email.toLowerCase()){
-      const displayName2 = EMAIL_NAME_MAP[email] || email.split('@')[0];
-      authedUser = {email, name: displayName2};
-      currentUser = displayName2;
-      return true; // セッション有効
-    }
-  }
-  return false;
 }
 
 async function showApp(){
@@ -656,7 +601,6 @@ const DEFAULT_ADJS=[
   }
 ];
 let adjs=DEFAULT_ADJS.map(a=>({...a}));
-let adminPw='5005';
 
 function k(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
 
@@ -753,40 +697,22 @@ async function firebaseGet(){
   return await r.json();
 }
 
-async function loadAllowedEmailAccess(){
-  // Firebase が未設定・オフラインでも認証画面を止めない。
-  // 追加管理者の取得を優先しつつ、5秒後にはHTML内の初期リストでログインを続行する。
-  const timeout=new Promise((_,reject)=>
-    setTimeout(()=>reject(new Error('管理者リストの取得がタイムアウトしました')),5000)
-  );
-  try{
-    const result=await Promise.race([firebaseGet(),timeout]);
-    const emails=result?.payload?.allowedEmails;
-    if(Array.isArray(emails) && emails.length){
-      allowedEmails=new Set(emails.map(e=>String(e).trim().toLowerCase()).filter(Boolean));
-    }
-  }catch(e){
-    console.warn('管理者リストを取得できないため初期リストを使用します:',e);
-  }
-}
-
 async function firebaseSet(payloadObj, updatedBy){
   const config=await getFirebaseConfig();
   const authToken=await ensureFirebaseAuthToken(config);
-  const url=`${config.databaseURL}/${FIREBASE_DATA_PATH}.json?auth=${encodeURIComponent(authToken)}`;
+  const url=`${config.databaseURL}/${FIREBASE_DATA_PATH}.json`;
   const r=await fetch(url,{
     method:'PUT',
-    headers:{'Content-Type':'application/json'},
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${authToken}`},
     body:JSON.stringify({payload:payloadObj,updated_by:updatedBy,updated_at:new Date().toISOString()})
   });
   if(!r.ok)throw new Error(`Firebaseに保存できません（HTTP ${r.status}）`);
- codex
 }
 
 async function ensureFirebaseAuthToken(config){
   if(firebaseAuthToken)return firebaseAuthToken;
   if(!config.apiKey)throw new Error('Firebase Authentication用の apiKey が未設定です');
-  const googleToken=sessionStorage.getItem('cal49_auth_token');
+  const googleToken=googleIdentityToken;
   if(!googleToken)throw new Error('Google認証情報がありません。再ログインしてください');
   const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${encodeURIComponent(config.apiKey)}`,{
     method:'POST',
@@ -805,7 +731,6 @@ async function ensureFirebaseAuthToken(config){
   }
   firebaseAuthToken=result.idToken;
   return firebaseAuthToken;
- main
 }
 
 /* ===== クラウド同期 ===== */
@@ -829,8 +754,7 @@ function setSyncStatus(state, msg, detail){
 
 function getPayload(){
   return {
-    scheduleVersion:2, adjs, settings, allOffPeriods, holidayEnabled, adminPw, eventList,
-    allowedEmails:[...allowedEmails],
+    scheduleVersion:2, adjs, settings, allOffPeriods, holidayEnabled, eventList,
     updatedAt: new Date().toISOString(),
     updatedBy: currentUser || '匿名'
   };
@@ -897,11 +821,7 @@ function applyPayload(p){
       const h=p.holidayEnabled;
       holidayEnabled=Array.isArray(h)?h:[true,true,true,true];
     }else holidayEnabled=[false,true,true,true];
-    if(p.adminPw) adminPw=p.adminPw;
     if(p.eventList) eventList=p.eventList;
-    if(Array.isArray(p.allowedEmails) && p.allowedEmails.length){
-      allowedEmails=new Set(p.allowedEmails.map(e=>String(e).trim().toLowerCase()).filter(Boolean));
-    }
   }catch(e){}
 }
 
@@ -947,7 +867,7 @@ function renderEdit(){
     else if(weekly)cls+='weekly';
     else cls+='work';
     const hn=hname?`<span class="tag">${hname}</span>`:'';
-    const en=ename?`<span class="tag" style="color:#999">${ename}</span>`:'';
+    const en=ename?`<span class="tag" style="color:#999">${escapeHtml(ename)}</span>`:'';
     const pt=paid?`<span class="paid-tag">有給</span>`:'';
     html+=`<div class="${cls}" onclick="cycleDay(${cy},${cm},${dd})">${dd}${hn}${en}${pt}</div>`;
   }
@@ -962,46 +882,12 @@ function renderSetting(){
     `<button class="dow-btn${offDow.includes(i)?' selected':''}" onclick="toggleDow(${i})">${d}</button>`).join('');
   document.getElementById('holiday-toggle').className='toggle'+(holidayEnabled[dept]?' on':'');
   document.getElementById('alloff-list').innerHTML=allOffPeriods.map((p,i)=>
-    `<div class="special-item"><span>${p.label}：${p.from}〜${p.to}</span><button class="del-btn" onclick="removeAllOff(${i})">✕</button></div>`).join('');
-  renderAdminEmails();
+    `<div class="special-item"><span>${escapeHtml(p.label)}：${escapeHtml(p.from)}〜${escapeHtml(p.to)}</span><button class="del-btn" onclick="removeAllOff(${i})">✕</button></div>`).join('');
   renderEventTable();
 }
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function renderAdminEmails(){
-  const box=document.getElementById('admin-email-list');
-  if(!box)return;
-  const me=authedUser?.email?.toLowerCase();
-  box.innerHTML=[...allowedEmails].sort().map(email=>
-    `<div class="special-item"><span>${escapeHtml(email)}${email===me?'（ログイン中）':''}</span>`+
-    `<button class="del-btn" onclick="removeAdminEmail('${encodeURIComponent(email)}')" ${email===me?'disabled title="ログイン中のアドレスは削除できません"':''}>✕</button></div>`
-  ).join('');
-}
-
-function addAdminEmail(){
-  const input=document.getElementById('admin-email-input');
-  const msg=document.getElementById('admin-email-msg');
-  const email=input.value.trim().toLowerCase();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-    msg.textContent='正しいメールアドレスを入力してください'; return;
-  }
-  if(allowedEmails.has(email)){
-    msg.textContent='このメールアドレスは登録済みです'; return;
-  }
-  allowedEmails.add(email); input.value=''; msg.textContent='';
-  save(); renderAdminEmails();
-}
-
-function removeAdminEmail(encodedEmail){
-  const email=decodeURIComponent(encodedEmail).toLowerCase();
-  if(email===authedUser?.email?.toLowerCase())return;
-  if(allowedEmails.size<=1){
-    document.getElementById('admin-email-msg').textContent='管理者は1人以上必要です'; return;
-  }
-  allowedEmails.delete(email); save(); renderAdminEmails();
 }
 
 function renderEventTable(){
@@ -1094,19 +980,6 @@ function addAllOff(){
 }
 function removeAllOff(i){allOffPeriods.splice(i,1);save();renderSetting();renderEdit();updateGlobalBadge();}
 
-function changePw(){
-  const cur=document.getElementById('pw-current').value;
-  const nw=document.getElementById('pw-new').value;
-  const msg=document.getElementById('pw-msg');
-  if(cur!==adminPw){msg.textContent='現在のパスワードが違います';return;}
-  if(nw.length<4){msg.textContent='4文字以上で設定してください';return;}
-  adminPw=nw;save();
-  msg.style.color='#27500A';msg.textContent='パスワードを変更しました';
-  document.getElementById('pw-current').value='';
-  document.getElementById('pw-new').value='';
-  setTimeout(()=>{msg.textContent='';msg.style.color='#A32D2D';},2000);
-}
-
 function renderView(){
   let totalOff=0,totalPaid=0,totalWork=0,totalDim=0;
   let rows='';
@@ -1131,24 +1004,9 @@ function renderView(){
 
 function fmtT(h){const hh=Math.floor(h),mm=Math.round((h-hh)*60);return `${hh}:${String(mm).padStart(2,'0')}`;}
 
-/* ===== 管理者ログイン ===== */
-function showAdminLogin(){
-  document.getElementById('admin-overlay').style.display='flex';
-  document.getElementById('admin-pw-input').value='';
-  document.getElementById('admin-err').textContent='';
-  setTimeout(()=>document.getElementById('admin-pw-input').focus(),100);
-}
-function hideAdminLogin(){document.getElementById('admin-overlay').style.display='none';}
-function doAdminLogin(){
-  const input=document.getElementById('admin-pw-input').value;
-  if(input===adminPw){
-    hideAdminLogin();
-    buildPrintArea();
-    setTimeout(()=>window.print(),300);
-  }else{
-    document.getElementById('admin-err').textContent='パスワードが違います';
-    document.getElementById('admin-pw-input').value='';
-  }
+function printCalendars(){
+  buildPrintArea();
+  setTimeout(()=>window.print(),300);
 }
 
 /* ===== 印刷エリア構築 ===== */
@@ -1222,7 +1080,7 @@ function buildPrintMonth(y,m,di,label){
     else if(hol)cls+='c-holiday';
     else if(weekly)cls+='c-weekly';
     const sub=hname||ename;
-    html+=`<div class="${cls}">${dd}${sub?`<span class="etag">${sub}</span>`:''}`;
+    html+=`<div class="${cls}">${dd}${sub?`<span class="etag">${escapeHtml(sub)}</span>`:''}`;
     if(paid)html+=`<span class="paid-mark">有給</span>`;
     html+=`</div>`;
   }
@@ -1288,19 +1146,9 @@ function resetDept(){
   }
 }
 
-// アプリ起動: まず認証チェック
-(async()=>{
-  // 追加登録された管理者もログイン判定できるよう、認証画面の前に許可リストだけ取得する
-  await loadAllowedEmailAccess();
-  if(checkSessionAuth()){
-    // セッション有効 → そのままアプリ表示
-    await showApp();
-  } else {
-    // Google認証フロー開始
-    document.getElementById('auth-spinner').textContent = 'Googleアカウントを確認中...';
-    initGoogleAuth();
-  }
-})();
+// IDトークンはページ再読み込みをまたいで保存せず、毎回Google認証を開始する。
+document.getElementById('auth-spinner').textContent = 'Googleアカウントを確認中...';
+initGoogleAuth();
 </script>
 </body>
 </html>

@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
 <title>第49期 年間休日カレンダー</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -426,6 +427,10 @@ function renderSummary(){
     <div class="sc"><div class="sl">労働日数</div><div class="sv">${work}日</div></div>`;
 }
 
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 /* ===== 月カレンダー描画 ===== */
 function renderMonth(){
   const mn2=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
@@ -447,7 +452,7 @@ function renderMonth(){
     const ename=evMap[key]||'';
     const isToday=key===today?' today':'';
     const hn=hname?`<span class="tag">${hname}</span>`:'';
-    const en=ename?`<span class="tag" style="opacity:.65">${ename}</span>`:'';
+    const en=ename?`<span class="tag" style="opacity:.65">${escapeHtml(ename)}</span>`:'';
     const pt=paid?`<span class="paid-tag">有給</span>`:'';
     html+=`<div class="dc ${cls}${isToday}">${dd}${hn}${en}${pt}</div>`;
   }
@@ -475,7 +480,7 @@ function renderYear(){
       const{paid}=finalState(y,m,dd);
       const ename=evMap[key]||'';
       const hname=HOLIDAYS_MASTER[key]||'';
-      const sub=hname||ename;
+      const sub=escapeHtml(hname||ename);
       const isToday=key===today?' today':'';
       html+=`<div class="yc ${cls}${isToday}">${dd}`;
       if(paid)html+=`<span class="etag">有給</span>`;

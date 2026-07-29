@@ -1,0 +1,4 @@
+{
+  "apiKey": "YOUR_FIREBASE_WEB_API_KEY",
+  "databaseURL": "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com"
+}
