@@ -780,6 +780,7 @@ async function firebaseSet(payloadObj, updatedBy){
     body:JSON.stringify({payload:payloadObj,updated_by:updatedBy,updated_at:new Date().toISOString()})
   });
   if(!r.ok)throw new Error(`Firebaseに保存できません（HTTP ${r.status}）`);
+ codex
 }
 
 async function ensureFirebaseAuthToken(config){
@@ -804,6 +805,7 @@ async function ensureFirebaseAuthToken(config){
   }
   firebaseAuthToken=result.idToken;
   return firebaseAuthToken;
+ main
 }
 
 /* ===== クラウド同期 ===== */
