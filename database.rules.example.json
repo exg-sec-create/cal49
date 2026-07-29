@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "cal49": {
+      "shared": {
+        ".read": true,
+        ".write": "auth != null && auth.token.email_verified == true && (auth.token.email == 'y-togashi@ych-exceed.com' || auth.token.email == 'm-togashi@ych-exceed.com' || auth.token.email == 'yamamoto@ych-exceed.com' || auth.token.email == 'koseki@ych-exceed.com' || auth.token.email == 'tegawa@ych-exceed.com')",
+        ".validate": "newData.hasChild('payload') && newData.child('payload').hasChildren(['scheduleVersion', 'adjs', 'settings', 'allOffPeriods', 'holidayEnabled', 'eventList', 'updatedAt', 'updatedBy'])"
+      },
+      "$other": {
+        ".read": false,
+        ".write": false
+      }
+    },
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
