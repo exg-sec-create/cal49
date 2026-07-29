@@ -13,6 +13,7 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans
 /* ヘッダー */
 .top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .top-bar h1{font-size:15px;font-weight:600;letter-spacing:.01em;}
+.page-link{font-size:11px;color:#185FA5;text-decoration:none;background:#fff;border:.5px solid #ccc;border-radius:8px;padding:5px 8px;white-space:nowrap;}
 .off-badge{font-size:13px;font-weight:500;background:#fff;border:0.5px solid #ccc;border-radius:8px;padding:4px 12px;white-space:nowrap;}
 .off-badge span{color:#185FA5;font-weight:700;}
 
@@ -109,6 +110,7 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans
 
   <div class="top-bar">
     <h1>第49期 年間休日カレンダー</h1>
+    <a class="page-link" href="index.html">⚙️ 管理者ページ</a>
     <div class="off-badge">休日 <span id="off-count">—</span>日</div>
   </div>
 
@@ -232,8 +234,38 @@ const GW_DATES=new Set(["2027-05-03","2027-05-04","2027-05-05"]);
 let dept=0, cy=2026, cm=5, viewMode='month';
 let settings=DEFAULT_SETTINGS.map(s=>({...s,offDow:[...s.offDow]}));
 let allOffPeriods=DEFAULT_ALL_OFF.map(o=>({...o}));
-let holidayEnabled=[true,true,true,true];
-let adjs=[{},{},{},{}];
+let holidayEnabled=[false,true,true,true];
+const DEFAULT_ADJS=[
+  {
+    '2026-07-16':'work','2026-08-19':'work','2026-08-20':'work','2026-09-24':'work',
+    '2026-10-22':'work','2026-11-19':'work','2026-12-17':'work','2026-12-24':'work',
+    '2027-01-07':'work','2027-01-21':'work','2027-02-11':'work','2027-03-18':'work',
+    '2027-04-14':'work','2026-09-21':'off','2026-09-22':'off',
+    '2026-08-17':'paid','2026-11-24':'paid','2027-01-05':'paid','2027-04-27':'paid'
+  },
+  {
+    '2026-06-03':'work','2026-08-05':'work','2026-08-19':'work','2026-09-02':'work',
+    '2026-10-14':'work','2026-12-02':'work','2026-12-09':'work','2027-01-20':'work',
+    '2027-02-03':'work','2027-02-17':'work','2027-03-17':'work','2027-03-31':'work',
+    '2027-04-14':'work','2027-05-26':'work',
+    '2026-08-17':'paid','2026-11-11':'paid','2027-01-05':'paid','2027-04-27':'paid'
+  },
+  {
+    '2026-07-04':'work','2026-07-25':'work','2026-08-08':'work','2026-08-22':'work',
+    '2026-09-05':'work','2026-09-19':'work','2026-10-03':'work','2026-10-17':'work',
+    '2026-10-31':'work','2026-11-07':'work','2026-12-05':'work','2026-12-12':'work',
+    '2026-12-19':'work','2027-01-16':'work','2027-01-30':'work','2027-02-27':'work',
+    '2027-03-06':'work','2027-03-20':'work','2027-04-03':'work','2027-04-17':'work',
+    '2027-05-08':'work','2027-05-15':'work','2027-05-29':'work',
+    '2026-08-17':'paid','2027-01-05':'paid','2027-04-30':'paid'
+  },
+  {
+    '2026-06-13':'off','2026-10-24':'off','2027-01-23':'off','2027-03-13':'off',
+    '2027-03-20':'work','2027-04-10':'off','2027-05-22':'off',
+    '2026-07-11':'paid','2026-09-12':'paid','2026-11-14':'paid','2027-01-05':'paid'
+  }
+];
+let adjs=DEFAULT_ADJS.map(a=>({...a}));
 let eventList=[...DEFAULT_EVENTS.map(e=>({...e}))];
 let dataLoaded=false;
 
@@ -255,12 +287,13 @@ const STORAGE_KEY = 'cal49_shared_v1';
 
 function applyPayload(p){
   if(!p || typeof p !== 'object')return false;
-  if(p.adjs)adjs=p.adjs;
+  if(p.scheduleVersion===2&&p.adjs)adjs=p.adjs;
+  else adjs=DEFAULT_ADJS.map(a=>({...a}));
   if(p.settings)settings=p.settings;
   if(p.allOffPeriods)allOffPeriods=p.allOffPeriods;
-  if(p.holidayEnabled){
+  if(p.scheduleVersion===2&&p.holidayEnabled){
     holidayEnabled=Array.isArray(p.holidayEnabled)?p.holidayEnabled:[true,true,true,true];
-  }
+  }else holidayEnabled=[false,true,true,true];
   if(p.eventList)eventList=p.eventList;
   dataLoaded=true;
   return true;

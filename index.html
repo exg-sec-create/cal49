@@ -13,6 +13,7 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans
 .screen-wrap{max-width:480px;margin:0 auto;padding:12px 10px 60px;}
 .top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
 .top-bar h1{font-size:14px;font-weight:500;}
+.page-link{font-size:11px;color:#185FA5;text-decoration:none;background:#fff;border:.5px solid #ccc;border-radius:8px;padding:5px 8px;white-space:nowrap;}
 .off-badge{font-size:13px;font-weight:500;background:#fff;border:0.5px solid #ccc;border-radius:8px;padding:4px 10px;white-space:nowrap;}
 .off-badge span{color:#185FA5;}
 .mode-tabs{display:flex;gap:4px;margin-bottom:10px;}
@@ -254,6 +255,7 @@ td.m-c{font-weight:500;color:#888;}
 <div class="screen-wrap">
 <div class="top-bar">
   <h1>第49期 カレンダー管理</h1>
+  <a class="page-link" href="staff.html">👀 閲覧者ページ</a>
   <div class="off-badge">休日 <span id="global-off">—</span>日</div>
 </div>
 <div class="sync-bar" id="sync-bar">
@@ -340,6 +342,16 @@ td.m-c{font-weight:500;color:#888;}
     <button class="add-event-btn" onclick="addEvent()">＋ 1日だけ追加</button>
   </div>
   <div class="setting-section">
+    <div class="setting-title">管理できる人</div>
+    <div class="hint">Googleログインを許可するメールアドレスを登録します。現在ログイン中のアドレスは削除できません。</div>
+    <div class="special-list" id="admin-email-list"></div>
+    <div class="add-row">
+      <input type="email" id="admin-email-input" placeholder="name@example.com">
+      <button onclick="addAdminEmail()">追加</button>
+    </div>
+    <div id="admin-email-msg" style="font-size:11px;color:#A32D2D;margin-top:4px;min-height:14px;"></div>
+  </div>
+  <div class="setting-section">
     <div class="setting-title">管理者パスワード変更</div>
     <div class="pw-setting">
       <p>現在のパスワード確認後、新しいPINを設定できます</p>
@@ -383,13 +395,14 @@ td.m-c{font-weight:500;color:#888;}
 
 <script>
 /* ===== Google認証 ===== */
-const ALLOWED_EMAILS = new Set([
+const DEFAULT_ALLOWED_EMAILS = [
   'y-togashi@ych-exceed.com',
   'm-togashi@ych-exceed.com',
   'yamamoto@ych-exceed.com',
   'koseki@ych-exceed.com',
   'tegawa@ych-exceed.com'
-]);
+];
+let allowedEmails = new Set(DEFAULT_ALLOWED_EMAILS);
 
 // Google OAuth Client ID
 // ※ Google Cloud ConsoleでOAuthクライアントIDを作成し、下記に貼り付けてください
@@ -476,7 +489,7 @@ function handleCredentialResponse(response){
     return;
   }
   const email = (payload.email || '').toLowerCase();
-  if(!ALLOWED_EMAILS.has(email)){
+  if(!allowedEmails.has(email)){
     showAuthErr(`${email} はアクセス権限がありません。\n管理者にお問い合わせください。`);
     google.accounts.id.disableAutoSelect();
     return;
@@ -501,7 +514,7 @@ function checkSessionAuth(){
   // セッション内に認証済みトークンがあればスキップ
   const token = sessionStorage.getItem('cal49_auth_token');
   const email = sessionStorage.getItem('cal49_auth_email');
-  if(token && email && ALLOWED_EMAILS.has(email.toLowerCase())){
+  if(token && email && allowedEmails.has(email.toLowerCase())){
     const payload = parseJwt(token);
     // トークンの有効期限確認（exp: UNIX秒）
     if(payload && payload.aud === GOOGLE_CLIENT_ID &&
@@ -607,8 +620,41 @@ const DEFAULT_ALL_OFF=[
 const GW_DATES=new Set(["2027-05-03","2027-05-04","2027-05-05"]);
 let settings=DEFAULT_SETTINGS.map(s=>({...s,offDow:[...s.offDow]}));
 let allOffPeriods=DEFAULT_ALL_OFF.map(o=>({...o}));
-let holidayEnabled=[true,true,true,true]; // 部署ごと
-let adjs=[{},{},{},{}];
+let holidayEnabled=[false,true,true,true]; // 水木休みは画像どおり祝日を通常勤務扱い
+/* 送付された確定カレンダーに合わせた初期調整。
+   水木・水日休みは基本曜日どおり、土日は年間105日に合わせて一部土曜を出勤、
+   日土変動は指定土曜のみ休日とする。 */
+const DEFAULT_ADJS=[
+  {
+    '2026-07-16':'work','2026-08-19':'work','2026-08-20':'work','2026-09-24':'work',
+    '2026-10-22':'work','2026-11-19':'work','2026-12-17':'work','2026-12-24':'work',
+    '2027-01-07':'work','2027-01-21':'work','2027-02-11':'work','2027-03-18':'work',
+    '2027-04-14':'work','2026-09-21':'off','2026-09-22':'off',
+    '2026-08-17':'paid','2026-11-24':'paid','2027-01-05':'paid','2027-04-27':'paid'
+  },
+  {
+    '2026-06-03':'work','2026-08-05':'work','2026-08-19':'work','2026-09-02':'work',
+    '2026-10-14':'work','2026-12-02':'work','2026-12-09':'work','2027-01-20':'work',
+    '2027-02-03':'work','2027-02-17':'work','2027-03-17':'work','2027-03-31':'work',
+    '2027-04-14':'work','2027-05-26':'work',
+    '2026-08-17':'paid','2026-11-11':'paid','2027-01-05':'paid','2027-04-27':'paid'
+  },
+  {
+    '2026-07-04':'work','2026-07-25':'work','2026-08-08':'work','2026-08-22':'work',
+    '2026-09-05':'work','2026-09-19':'work','2026-10-03':'work','2026-10-17':'work',
+    '2026-10-31':'work','2026-11-07':'work','2026-12-05':'work','2026-12-12':'work',
+    '2026-12-19':'work','2027-01-16':'work','2027-01-30':'work','2027-02-27':'work',
+    '2027-03-06':'work','2027-03-20':'work','2027-04-03':'work','2027-04-17':'work',
+    '2027-05-08':'work','2027-05-15':'work','2027-05-29':'work',
+    '2026-08-17':'paid','2027-01-05':'paid','2027-04-30':'paid'
+  },
+  {
+    '2026-06-13':'off','2026-10-24':'off','2027-01-23':'off','2027-03-13':'off',
+    '2027-03-20':'work','2027-04-10':'off','2027-05-22':'off',
+    '2026-07-11':'paid','2026-09-12':'paid','2026-11-14':'paid','2027-01-05':'paid'
+  }
+];
+let adjs=DEFAULT_ADJS.map(a=>({...a}));
 let adminPw='1234';
 
 function k(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
@@ -693,6 +739,14 @@ async function sbGet(){
   }catch(e){ return null; }
 }
 
+async function loadAllowedEmailAccess(){
+  const result=await sbGet();
+  const emails=result?.payload?.allowedEmails;
+  if(Array.isArray(emails) && emails.length){
+    allowedEmails=new Set(emails.map(e=>String(e).trim().toLowerCase()).filter(Boolean));
+  }
+}
+
 async function sbSet(payloadObj, updatedBy){
   try{
     const r = await fetch(`${SUPABASE_URL}/rest/v1/cal49_data`,{
@@ -730,7 +784,8 @@ function setSyncStatus(state, msg, detail){
 
 function getPayload(){
   return {
-    adjs, settings, allOffPeriods, holidayEnabled, adminPw, eventList,
+    scheduleVersion:2, adjs, settings, allOffPeriods, holidayEnabled, adminPw, eventList,
+    allowedEmails:[...allowedEmails],
     updatedAt: new Date().toISOString(),
     updatedBy: currentUser || '匿名'
   };
@@ -787,15 +842,20 @@ function loadFromCache(){
 function applyPayload(p){
   if(!p){ return; } // デフォルト値のまま
   try{
-    if(p.adjs) adjs=p.adjs;
+    // 旧データは送付画像の日程へ一度だけ移行する。移行後の手動編集はそのまま保持する。
+    if(p.scheduleVersion===2 && p.adjs) adjs=p.adjs;
+    else adjs=DEFAULT_ADJS.map(a=>({...a}));
     if(p.settings) settings=p.settings;
     if(p.allOffPeriods) allOffPeriods=p.allOffPeriods;
-    if(p.holidayEnabled){
+    if(p.scheduleVersion===2 && p.holidayEnabled){
       const h=p.holidayEnabled;
       holidayEnabled=Array.isArray(h)?h:[true,true,true,true];
-    }
+    }else holidayEnabled=[false,true,true,true];
     if(p.adminPw) adminPw=p.adminPw;
     if(p.eventList) eventList=p.eventList;
+    if(Array.isArray(p.allowedEmails) && p.allowedEmails.length){
+      allowedEmails=new Set(p.allowedEmails.map(e=>String(e).trim().toLowerCase()).filter(Boolean));
+    }
   }catch(e){}
 }
 
@@ -857,7 +917,45 @@ function renderSetting(){
   document.getElementById('holiday-toggle').className='toggle'+(holidayEnabled[dept]?' on':'');
   document.getElementById('alloff-list').innerHTML=allOffPeriods.map((p,i)=>
     `<div class="special-item"><span>${p.label}：${p.from}〜${p.to}</span><button class="del-btn" onclick="removeAllOff(${i})">✕</button></div>`).join('');
+  renderAdminEmails();
   renderEventTable();
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderAdminEmails(){
+  const box=document.getElementById('admin-email-list');
+  if(!box)return;
+  const me=authedUser?.email?.toLowerCase();
+  box.innerHTML=[...allowedEmails].sort().map(email=>
+    `<div class="special-item"><span>${escapeHtml(email)}${email===me?'（ログイン中）':''}</span>`+
+    `<button class="del-btn" onclick="removeAdminEmail('${encodeURIComponent(email)}')" ${email===me?'disabled title="ログイン中のアドレスは削除できません"':''}>✕</button></div>`
+  ).join('');
+}
+
+function addAdminEmail(){
+  const input=document.getElementById('admin-email-input');
+  const msg=document.getElementById('admin-email-msg');
+  const email=input.value.trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    msg.textContent='正しいメールアドレスを入力してください'; return;
+  }
+  if(allowedEmails.has(email)){
+    msg.textContent='このメールアドレスは登録済みです'; return;
+  }
+  allowedEmails.add(email); input.value=''; msg.textContent='';
+  save(); renderAdminEmails();
+}
+
+function removeAdminEmail(encodedEmail){
+  const email=decodeURIComponent(encodedEmail).toLowerCase();
+  if(email===authedUser?.email?.toLowerCase())return;
+  if(allowedEmails.size<=1){
+    document.getElementById('admin-email-msg').textContent='管理者は1人以上必要です'; return;
+  }
+  allowedEmails.delete(email); save(); renderAdminEmails();
 }
 
 function renderEventTable(){
@@ -1140,12 +1238,14 @@ function nextM(){if(cy===2027&&cm===4)return;cm++;if(cm>11){cm=0;cy++;}renderEdi
 
 function resetDept(){
   if(confirm('この部署の調整・有給をリセットしますか？')){
-    adjs[dept]={};save();renderEdit();updateGlobalBadge();
+    adjs[dept]={...DEFAULT_ADJS[dept]};save();renderEdit();updateGlobalBadge();
   }
 }
 
 // アプリ起動: まず認証チェック
 (async()=>{
+  // 追加登録された管理者もログイン判定できるよう、認証画面の前に許可リストだけ取得する
+  await loadAllowedEmailAccess();
   if(checkSessionAuth()){
     // セッション有効 → そのままアプリ表示
     await showApp();
