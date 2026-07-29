@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- Google Identity Services -->
-<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="https://accounts.google.com/gsi/client" async onerror="window.googleScriptLoadFailed=true"></script>
 <title>第49期 年間休日カレンダー</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -120,6 +120,8 @@ td.m-c{font-weight:500;color:#888;}
 .auth-logo{font-size:32px;margin-bottom:14px;}
 .auth-err{font-size:11px;color:#A32D2D;margin-top:14px;min-height:16px;line-height:1.5;}
 .auth-spinner{font-size:12px;color:#888;margin-top:12px;}
+.auth-help{font-size:10px;color:#777;margin-top:12px;padding:9px;background:#f5f5f0;border-radius:8px;line-height:1.6;text-align:left;word-break:break-all;}
+.auth-help strong{color:#444;}
 #g_id_signin{display:flex;justify-content:center;}
 
 /* ===== SYNC BAR ===== */
@@ -242,6 +244,7 @@ td.m-c{font-weight:500;color:#888;}
     <p>管理者専用システムです。<br>許可されたGoogleアカウントでログインしてください。</p>
     <div id="g_id_signin"></div>
     <div class="auth-spinner" id="auth-spinner">Googleアカウントを確認中...</div>
+    <div class="auth-help" id="auth-help" style="display:none;"></div>
     <div class="auth-err" id="auth-err"></div>
   </div>
 </div>
@@ -389,28 +392,54 @@ const ALLOWED_EMAILS = new Set([
 
 // Google OAuth Client ID
 // ※ Google Cloud ConsoleでOAuthクライアントIDを作成し、下記に貼り付けてください
-// 現在はデモ用のClient IDを使用しています
 const GOOGLE_CLIENT_ID = '558711705833-u77jpcg1nv47l6kur4dclsaik7s9undt.apps.googleusercontent.com';
 
 let authedUser = null; // ログイン済みユーザー情報
+let googleAuthWaitCount = 0;
+
+function currentOrigin(){
+  return window.location.origin;
+}
+
+function showOriginHelp(){
+  const help = document.getElementById('auth-help');
+  help.style.display = 'block';
+  help.innerHTML = `<strong>管理者向け：</strong>「Error 400: origin_mismatch」の場合は、Google Cloud Console の OAuth クライアントに次の「承認済みの JavaScript 生成元」を完全一致で追加してください。<br><code>${currentOrigin()}</code>`;
+}
 
 function initGoogleAuth(){
+  showOriginHelp();
+  if(window.googleScriptLoadFailed){
+    showAuthErr('Google認証サービスを読み込めませんでした。通信環境またはブラウザのトラッキング防止設定をご確認ください。');
+    return;
+  }
   // GISライブラリ読み込み待ち
   if(typeof google === 'undefined'){
+    if(++googleAuthWaitCount >= 50){
+      showAuthErr('Google認証サービスを読み込めませんでした。ページを再読み込みしてください。');
+      showOriginHelp();
+      return;
+    }
     setTimeout(initGoogleAuth, 200);
     return;
   }
-  google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: handleCredentialResponse,
-    auto_select: true,         // Googleログイン済みなら自動選択
-    cancel_on_tap_outside: false,
-    context: 'signin',
-  });
-  google.accounts.id.renderButton(
-    document.getElementById('g_id_signin'),
-    {theme:'outline', size:'large', text:'signin_with', locale:'ja', width:280}
-  );
+  try{
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleCredentialResponse,
+      auto_select: true,
+      cancel_on_tap_outside: false,
+      context: 'signin',
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('g_id_signin'),
+      {theme:'outline', size:'large', text:'signin_with', locale:'ja', width:280}
+    );
+  }catch(e){
+    showAuthErr('Google認証の初期化に失敗しました。管理者にお問い合わせください。');
+    showOriginHelp();
+    return;
+  }
   // One Tap（自動サインイン）を試みる
   google.accounts.id.prompt((notification)=>{
     if(notification.isNotDisplayed() || notification.isSkippedMoment()){
@@ -438,7 +467,13 @@ const EMAIL_NAME_MAP = {
 
 function handleCredentialResponse(response){
   const payload = parseJwt(response.credential);
-  if(!payload){ showAuthErr('認証情報を読み取れませんでした。'); return; }
+  const now = Math.floor(Date.now()/1000);
+  if(!payload || payload.aud !== GOOGLE_CLIENT_ID ||
+     !['accounts.google.com','https://accounts.google.com'].includes(payload.iss) ||
+     !payload.email_verified || !payload.exp || payload.exp <= now){
+    showAuthErr('認証情報を検証できませんでした。もう一度ログインしてください。');
+    return;
+  }
   const email = (payload.email || '').toLowerCase();
   if(!ALLOWED_EMAILS.has(email)){
     showAuthErr(`${email} はアクセス権限がありません。\n管理者にお問い合わせください。`);
@@ -468,7 +503,10 @@ function checkSessionAuth(){
   if(token && email && ALLOWED_EMAILS.has(email.toLowerCase())){
     const payload = parseJwt(token);
     // トークンの有効期限確認（exp: UNIX秒）
-    if(payload && payload.exp * 1000 > Date.now()){
+    if(payload && payload.aud === GOOGLE_CLIENT_ID &&
+       ['accounts.google.com','https://accounts.google.com'].includes(payload.iss) &&
+       payload.email_verified && payload.exp * 1000 > Date.now() &&
+       (payload.email || '').toLowerCase() === email.toLowerCase()){
       const displayName2 = EMAIL_NAME_MAP[email] || email.split('@')[0];
       authedUser = {email, name: displayName2};
       currentUser = displayName2;
