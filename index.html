@@ -410,6 +410,7 @@ const GOOGLE_CLIENT_ID = '558711705833-u77jpcg1nv47l6kur4dclsaik7s9undt.apps.goo
 
 let authedUser = null; // ログイン済みユーザー情報
 let googleAuthWaitCount = 0;
+let firebaseAuthToken = null;
 
 function currentOrigin(){
   return window.location.origin;
@@ -771,12 +772,40 @@ async function loadAllowedEmailAccess(){
 
 async function firebaseSet(payloadObj, updatedBy){
   const config=await getFirebaseConfig();
-  const r=await fetch(`${config.databaseURL}/${FIREBASE_DATA_PATH}.json`,{
+  const authToken=await ensureFirebaseAuthToken(config);
+  const url=`${config.databaseURL}/${FIREBASE_DATA_PATH}.json?auth=${encodeURIComponent(authToken)}`;
+  const r=await fetch(url,{
     method:'PUT',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({payload:payloadObj,updated_by:updatedBy,updated_at:new Date().toISOString()})
   });
   if(!r.ok)throw new Error(`Firebaseに保存できません（HTTP ${r.status}）`);
+ codex
+}
+
+async function ensureFirebaseAuthToken(config){
+  if(firebaseAuthToken)return firebaseAuthToken;
+  if(!config.apiKey)throw new Error('Firebase Authentication用の apiKey が未設定です');
+  const googleToken=sessionStorage.getItem('cal49_auth_token');
+  if(!googleToken)throw new Error('Google認証情報がありません。再ログインしてください');
+  const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${encodeURIComponent(config.apiKey)}`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      requestUri:window.location.href,
+      postBody:`id_token=${encodeURIComponent(googleToken)}&providerId=google.com`,
+      returnSecureToken:true,
+      returnIdpCredential:true
+    })
+  });
+  const result=await r.json();
+  if(!r.ok||!result.idToken){
+    const reason=result?.error?.message||`HTTP ${r.status}`;
+    throw new Error(`Firebase Authenticationに失敗しました（${reason}）`);
+  }
+  firebaseAuthToken=result.idToken;
+  return firebaseAuthToken;
+ main
 }
 
 /* ===== クラウド同期 ===== */
