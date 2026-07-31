@@ -128,10 +128,14 @@ td.m-c{font-weight:500;color:#888;}
 
 /* ===== SYNC BAR ===== */
 .sync-bar{display:flex;align-items:center;justify-content:space-between;
-  padding:5px 10px;background:#f0f0ea;border-radius:8px;margin-bottom:8px;
-  font-size:10px;color:#888;gap:6px;}
+  padding:8px 10px;background:#f0f0ea;border:1px solid transparent;border-radius:8px;margin-bottom:8px;
+  font-size:10px;color:#666;gap:8px;}
+.sync-bar[data-state="offline"]{background:#FFF4F4;border-color:#F2B8B5;}
+.sync-bar[data-state="online"]{background:#F1F8E9;border-color:#C5DDB1;}
+.sync-bar[data-state="syncing"]{background:#F0F6FC;border-color:#B5D4F4;}
 .sync-bar .sync-info{flex:1;line-height:1.4;}
-.sync-bar .sync-info strong{color:#222;font-size:11px;}
+.sync-status{color:#333;font-size:11px;font-weight:600;}
+.sync-detail{font-size:9px;color:#777;margin-top:1px;}
 .sync-btn{padding:4px 10px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;
   background:#fff;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .sync-btn.saving{background:#E6F1FB;color:#0C447C;border-color:#378ADD;}
@@ -259,11 +263,11 @@ td.m-c{font-weight:500;color:#888;}
   <a class="page-link" href="staff.html">👀 閲覧者ページ</a>
   <div class="off-badge">休日 <span id="global-off">—</span>日</div>
 </div>
-<div class="sync-bar" id="sync-bar">
+<div class="sync-bar" id="sync-bar" data-state="syncing" role="status" aria-live="polite">
   <div class="sync-dot" id="sync-dot"></div>
   <div class="sync-info">
-    <div id="sync-status">クラウドに接続中...</div>
-    <div id="sync-detail" style="font-size:9px;color:#aaa;margin-top:1px;"></div>
+    <div class="sync-status" id="sync-status">クラウドに接続中...</div>
+    <div class="sync-detail" id="sync-detail"></div>
   </div>
   <button class="sync-btn" id="sync-btn" onclick="manualSync()">🔄 同期</button>
 </div>
@@ -686,6 +690,8 @@ async function getFirebaseConfig(){
       }
       throw new Error('Firebase未設定（firebase-config.json を確認してください）');
     })();
+    // 失敗を永続的にキャッシュしない。設定追加後の「再接続」で再試行できるようにする。
+    firebaseConfigPromise.catch(()=>{ firebaseConfigPromise=undefined; });
   }
   return firebaseConfigPromise;
 }
@@ -740,15 +746,19 @@ let lastSavedAt = null;
 let currentUser = localStorage.getItem('cal49_username') || null;
 
 function setSyncStatus(state, msg, detail){
+  const bar = document.getElementById('sync-bar');
   const dot = document.getElementById('sync-dot');
   const status = document.getElementById('sync-status');
   const det = document.getElementById('sync-detail');
   const btn = document.getElementById('sync-btn');
+  if(bar) bar.dataset.state = state;
   dot.className = 'sync-dot ' + state;
   status.textContent = msg;
   if(det) det.textContent = detail||'';
   if(btn){
     btn.className = 'sync-btn' + (state==='syncing'?' saving': state==='online'?' ok': state==='offline'?' err':'');
+    btn.textContent = state==='syncing' ? '↻ 接続中' : state==='offline' ? '↻ 再接続' : '🔄 同期';
+    btn.disabled = state==='syncing';
   }
 }
 
@@ -774,7 +784,7 @@ async function saveToCloud(silent){
     try{ localStorage.setItem('cal49_cache', JSON.stringify(payloadObj)); }catch(e){}
   }catch(e){
     console.error('クラウドへの保存に失敗しました:',e);
-    setSyncStatus('offline','⚠ 保存失敗','ローカルに保持中');
+    setSyncStatus('offline','クラウドに保存できませんでした',`${e.message||'接続を確認してください'}（変更はこの端末に一時保存）`);
     try{ localStorage.setItem('cal49_cache', JSON.stringify(getPayload())); }catch(e2){}
   }
 }
@@ -797,7 +807,10 @@ async function loadFromCloud(){
   }catch(e){
     console.error('クラウドからの読み込みに失敗しました:',e);
     loadFromCache();
-    setSyncStatus('offline','⚠ クラウド未接続',e.message||'Firebase設定を確認してください');
+    const missingConfig=(e.message||'').includes('Firebase未設定');
+    setSyncStatus('offline',
+      missingConfig?'クラウド同期の設定が必要です':'クラウドに接続できません',
+      missingConfig?'管理者は firebase-config.json を設置してください（現在はこの端末のデータを表示）':`${e.message||'通信状況を確認してください'}（この端末のデータを表示）`);
   }
 }
 
