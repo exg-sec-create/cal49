@@ -66,6 +66,7 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans
 .legend{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;}
 .li{display:flex;align-items:center;gap:3px;font-size:10px;color:#666;}
 .ld{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.paid-policy{margin:0 0 10px;padding:8px 10px;border-radius:8px;background:#f0f0ea;color:#666;font-size:10px;line-height:1.6;}
 
 /* 全部署一覧ビュー */
 .all-view{display:none;}
@@ -125,10 +126,11 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans
 
   <!-- 表示切替タブ -->
   <div class="view-tabs">
-    <button class="vtab active" id="vtab-month" onclick="setView('month')">📅 月表示</button>
-    <button class="vtab" id="vtab-year" onclick="setView('year')">📋 年間一覧</button>
-    <button class="vtab" onclick="reloadData()" style="flex:0.6;font-size:10px;">🔄 更新</button>
+    <button type="button" class="vtab active" id="vtab-month" onclick="setView('month')">📅 月表示</button>
+    <button type="button" class="vtab" id="vtab-year" onclick="setView('year')">📋 年間一覧</button>
+    <button type="button" class="vtab" onclick="reloadData()" style="flex:0.6;font-size:10px;">🔄 更新</button>
   </div>
+  <div class="paid-policy">※ 年10日以上の有給が付与される社員・パートタイマーは、付与日から1年以内に5日取得する必要があるため、会社が取得日を指定します。本人が取得した日数は、この5日から差し引きます。</div>
 
   <!-- 月表示 -->
   <div id="sec-month">
@@ -144,7 +146,7 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans
       <div class="li"><div class="ld" style="background:#FCEBEB;border:0.5px solid #E24B4A"></div>祝日</div>
       <div class="li"><div class="ld" style="background:#EAF3DE;border:0.5px solid #639922"></div>祝日+定休</div>
       <div class="li"><div class="ld" style="background:#FAEEDA;border:0.5px solid #BA7517"></div>全休</div>
-      <div class="li"><div class="ld" style="background:#EEEDFE;border:0.5px solid #534AB7"></div>有給</div>
+      <div class="li"><div class="ld" style="background:#EEEDFE;border:0.5px solid #534AB7"></div>会社指定有給</div>
     </div>
   </div>
 
@@ -422,7 +424,7 @@ function countYearWork(di=dept){
 
 /* ===== セルのクラス判定（共通） ===== */
 function cellCls(y,m,d,di=dept){
-  const{ao,hol,weekly,adj,off,paid}=finalState(y,m,d,di);
+  const{ao,hol,weekly,adj,paid}=finalState(y,m,d,di);
   if(paid)return 'paid';
   if(adj==='work')return '';
   if(adj==='off')return 'holiday';
@@ -450,7 +452,7 @@ function renderSummary(){
   document.getElementById('off-count').textContent=off+paid;
   document.getElementById('summary-bar').innerHTML=`
     <div class="sc"><div class="sl">年間休日</div><div class="sv red">${off}日</div></div>
-    <div class="sc"><div class="sl">年間有休</div><div class="sv blue">${paid}日</div></div>
+    <div class="sc"><div class="sl">会社指定有給</div><div class="sv blue">${paid}日</div></div>
     <div class="sc"><div class="sl">労働日数</div><div class="sv">${work}日</div></div>`;
 }
 
@@ -480,7 +482,7 @@ function renderMonth(){
     const isToday=key===today?' today':'';
     const hn=hname?`<span class="tag">${hname}</span>`:'';
     const en=ename?`<span class="tag" style="opacity:.65">${escapeHtml(ename)}</span>`:'';
-    const pt=paid?`<span class="paid-tag">有給</span>`:'';
+    const pt=paid?`<span class="paid-tag">指定有給</span>`:'';
     html+=`<div class="dc ${cls}${isToday}">${dd}${hn}${en}${pt}</div>`;
   }
   document.getElementById('cal').innerHTML=html;
@@ -497,7 +499,7 @@ function renderYear(){
     html+=`<div class="year-month">`;
     html+=`<div class="year-month-hd">${MN[mi]}</div>`;
     html+=`<div class="year-cal">`;
-    ['日','月','火','水','木','金','土'].forEach((d,i)=>`
+    ['日','月','火','水','木','金','土'].map((d,i)=>`
       <div class="yc-dow" style="${i===0?'color:#E24B4A':i===6?'color:#378ADD':''}">${d}</div>`
     ).forEach(s=>html+=s);
     for(let i=0;i<first;i++)html+=`<div class="yc ph"></div>`;
@@ -510,7 +512,7 @@ function renderYear(){
       const sub=escapeHtml(hname||ename);
       const isToday=key===today?' today':'';
       html+=`<div class="yc ${cls}${isToday}">${dd}`;
-      if(paid)html+=`<span class="etag">有給</span>`;
+      if(paid)html+=`<span class="etag">指定有給</span>`;
       else if(sub)html+=`<span class="etag">${sub}</span>`;
       html+=`</div>`;
     }
@@ -538,12 +540,13 @@ function setDept(i){
   else renderYear();
 }
 function setView(v){
+  if(v!=='month'&&v!=='year')return;
   viewMode=v;
   document.getElementById('vtab-month').classList.toggle('active',v==='month');
   document.getElementById('vtab-year').classList.toggle('active',v==='year');
+  if(v==='year')renderYear();
   document.getElementById('sec-month').style.display=v==='month'?'block':'none';
   document.getElementById('sec-year').style.display=v==='year'?'block':'none';
-  if(v==='year')renderYear();
 }
 
 /* ===== 今月にジャンプ ===== */
