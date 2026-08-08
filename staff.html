@@ -280,15 +280,17 @@ async function getFirebaseConfig(){
     firebaseConfigPromise=(async()=>{
       // Firebase Hosting では予約 URL を、GitHub Pages 等では同じ階層の設定ファイルを使う。
       const urls=['/__/firebase/init.json','firebase-config.json'];
+      const failures=[];
       for(const url of urls){
         try{
           const r=await fetch(url,{cache:'no-store'});
-          if(!r.ok)continue;
+          if(!r.ok){failures.push(`${url}: HTTP ${r.status}`);continue;}
           const config=await r.json();
           if(config.databaseURL)return config;
-        }catch(e){ /* 次の設定元を試す */ }
+          failures.push(`${url}: databaseURL がありません`);
+        }catch(e){failures.push(`${url}: ${e.message||'読み込み失敗'}`);}
       }
-      throw new Error('Firebase未設定（firebase-config.json を確認してください）');
+      throw new Error(`Firebase設定を読み込めません（${failures.join(' / ')}）`);
     })();
   }
   return firebaseConfigPromise;
