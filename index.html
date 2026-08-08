@@ -122,8 +122,6 @@ td.m-c{font-weight:500;color:#888;}
 .auth-logo{font-size:32px;margin-bottom:14px;}
 .auth-err{font-size:11px;color:#A32D2D;margin-top:14px;min-height:16px;line-height:1.5;}
 .auth-spinner{font-size:12px;color:#888;margin-top:12px;}
-.auth-help{font-size:10px;color:#777;margin-top:12px;padding:9px;background:#f5f5f0;border-radius:8px;line-height:1.6;text-align:left;word-break:break-all;}
-.auth-help strong{color:#444;}
 #g_id_signin{display:flex;justify-content:center;}
 
 /* ===== SYNC BAR ===== */
@@ -240,7 +238,6 @@ td.m-c{font-weight:500;color:#888;}
     <p>管理者専用システムです。<br>許可されたGoogleアカウントでログインしてください。</p>
     <div id="g_id_signin"></div>
     <div class="auth-spinner" id="auth-spinner">Googleアカウントを確認中...</div>
-    <div class="auth-help" id="auth-help" style="display:none;"></div>
     <div class="auth-err" id="auth-err"></div>
   </div>
 </div>
@@ -374,18 +371,7 @@ let googleAuthWaitCount = 0;
 let firebaseAuthToken = null;
 let googleIdentityToken = null;
 
-function currentOrigin(){
-  return window.location.origin;
-}
-
-function showOriginHelp(){
-  const help = document.getElementById('auth-help');
-  help.style.display = 'block';
-  help.innerHTML = `<strong>管理者向け：</strong>「Error 400: origin_mismatch」の場合は、Google Cloud Console の OAuth クライアントに次の「承認済みの JavaScript 生成元」を完全一致で追加してください。<br><code>${currentOrigin()}</code>`;
-}
-
 function initGoogleAuth(){
-  showOriginHelp();
   if(window.googleScriptLoadFailed){
     showAuthErr('Google認証サービスを読み込めませんでした。通信環境またはブラウザのトラッキング防止設定をご確認ください。');
     return;
@@ -394,7 +380,6 @@ function initGoogleAuth(){
   if(typeof google === 'undefined'){
     if(++googleAuthWaitCount >= 50){
       showAuthErr('Google認証サービスを読み込めませんでした。ページを再読み込みしてください。');
-      showOriginHelp();
       return;
     }
     setTimeout(initGoogleAuth, 200);
@@ -414,7 +399,6 @@ function initGoogleAuth(){
     );
   }catch(e){
     showAuthErr('Google認証の初期化に失敗しました。管理者にお問い合わせください。');
-    showOriginHelp();
     return;
   }
   // One Tap（自動サインイン）を試みる
@@ -788,9 +772,9 @@ async function loadFromCloud(){
       setSyncStatus('online',`✓ 同期済み`,`最終更新: ${result.updated_by||'不明'} (${t})`);
       try{ localStorage.setItem('cal49_cache', JSON.stringify(p)); }catch(e){}
     } else {
-      // クラウドにデータなし → キャッシュ or デフォルト
+      // 初回利用時はキャッシュまたはデフォルト値をクラウドへ作成する。
       loadFromCache();
-      setSyncStatus('online','新規データ（クラウド未保存）','');
+      await saveToCloud(false);
     }
   }catch(e){
     console.error('クラウドからの読み込みに失敗しました:',e);
