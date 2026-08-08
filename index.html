@@ -153,31 +153,29 @@ td.m-c{font-weight:500;color:#888;}
 }
 .print-area{display:none;}
 
-/* ── 配布用カレンダー（1部署につき1ページ） ── */
-@page{size:A4 portrait;margin:5mm;}
-.print-page{page-break-after:always;padding:2mm 3mm;font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif;}
+/* ── 従来のPDF形式：カレンダー1ページ＋集計1ページ ── */
+@page{size:A4 landscape;margin:5mm;}
+.print-page{page-break-after:always;padding:4mm 6mm;font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif;}
 .print-page:last-child{page-break-after:auto;}
-.print-header{position:relative;display:flex;align-items:center;justify-content:center;height:13mm;margin-bottom:1mm;}
-.print-header h2{font-family:serif;font-size:15pt;font-weight:700;}
-.print-header .dept-label{position:absolute;left:0;top:0;background:#fff1f1;color:#ff3848;border-radius:3mm;padding:1.5mm 4mm;font-size:18pt;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.12);}
+.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:3mm;padding-bottom:2mm;border-bottom:1.5px solid #222;}
+.print-header h2{font-size:11pt;font-weight:700;letter-spacing:.02em;}
+.print-header p{font-size:7.5pt;color:#555;}
 
 /* 凡例 */
-.print-legend{display:none;}
+.print-legend{display:flex;gap:6px;margin-bottom:3mm;flex-wrap:wrap;align-items:center;}
 .print-legend span{font-size:6.5pt;display:flex;align-items:center;gap:2px;color:#444;}
 .print-legend-dot{width:9px;height:9px;border-radius:2px;display:inline-block;flex-shrink:0;}
 
-/* 送付イメージと同じ 3列×4行 */
-.months-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm 9mm;}
-.month-block{overflow:hidden;}
-.month-block-header{background:#fff;color:#111;text-align:center;font-family:serif;font-size:10pt;font-weight:700;padding:0 0 1px;}
+/* 12ヶ月を4列×3行で一覧する従来配置 */
+.months-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2.5mm;}
+.month-block{border:0.5px solid #bbb;border-radius:2px;overflow:hidden;}
+.month-block-header{background:#2a2a2a;color:#fff;text-align:center;font-size:7.5pt;font-weight:700;padding:1.5px 0;letter-spacing:.05em;}
 .month-cal{display:grid;grid-template-columns:repeat(7,1fr);border-top:0.5px solid #bbb;}
 
 /* ── カレンダーセル ── */
 .mcell{
   text-align:center;
-  font-family:serif;font-size:7pt;
-  padding:1px 0;
-  min-height:15px;
+  font-size:6pt;padding:1.5px 0.5px;min-height:16px;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -188,20 +186,21 @@ td.m-c{font-weight:500;color:#888;}
   font-weight:500;
 }
 /* 空白セル */
-.mcell.ph{background:#fff;}
+.mcell.ph{background:#f7f7f5;}
 /* 曜日ヘッダー */
 .mcell.dow-h{
-  background:#fff;color:#111;
+  background:#2a2a2a;color:#fff;
   font-size:5.5pt;font-weight:700;
   min-height:11px;padding:1px 0;
   border-color:#444;
 }
 /* 平日（デフォルト）*/
 .mcell{background:#ffffff;color:#1a1a1a;}
-/* 配布見本では休日種別を赤に統一 */
-.mcell.c-weekly,.mcell.c-holiday,.mcell.c-both,.mcell.c-alloff{background:#f10b0b !important;color:#fff !important;}
-/* 有給は日付を消さず紫枠で表示 */
-.mcell.c-paid{background:#fff !important;color:#111 !important;outline:2px solid #8b4cff;outline-offset:-2px;}
+.mcell.c-weekly{background:#D6EAFA !important;color:#0C447C !important;}
+.mcell.c-holiday{background:#FAE0E0 !important;color:#8B1A1A !important;}
+.mcell.c-both{background:#D4EDCC !important;color:#1B4209 !important;}
+.mcell.c-alloff{background:#FAE6C0 !important;color:#5A3000 !important;}
+.mcell.c-paid{background:#E2E0FB !important;color:#2E2880 !important;}
 /* 出勤調整（薄グレー） */
 .mcell.c-work{background:#f0f0f0 !important;color:#666 !important;}
 
@@ -215,12 +214,6 @@ td.m-c{font-weight:500;color:#888;}
   line-height:1.1;
   opacity:.9;
 }
-.mcell .paid-mark{font-family:sans-serif;font-size:7pt;font-weight:700;color:#8b4cff;line-height:1;}
-.print-footer{display:grid;grid-template-columns:1fr 1.25fr;gap:25mm;margin-top:3mm;align-items:end;font-family:serif;font-size:7pt;}
-.work-time-swatch{display:inline-block;width:15mm;height:5mm;background:#c9ffd0;vertical-align:middle;margin-right:1mm;}
-.summary-list{display:grid;grid-template-columns:1fr auto;gap:0;}
-.summary-list dt,.summary-list dd{padding:1.5mm 1mm;border-bottom:.5px solid #555;font-weight:700;}
-.summary-list dd{text-align:right;}
 
 /* ── 集計ページ ── */
 .print-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm;margin-bottom:4mm;}
@@ -351,7 +344,8 @@ td.m-c{font-weight:500;color:#888;}
     <thead><tr><th>月</th><th>暦日</th><th>休日</th><th>有給</th><th>労働日</th><th>労働時間</th><th>週平均</th></tr></thead>
     <tbody id="view-tbody"></tbody>
   </table></div>
-  <button class="admin-btn" onclick="printCalendars()">🖨️ 部署別カレンダーを印刷・PDF保存</button>
+  <button class="admin-btn" onclick="printCalendars(true)">🖨️ 有給表示ありPDF（選択中の部署）</button>
+  <button class="admin-btn" onclick="printCalendars(false)">🖨️ 有給表示なしPDF（選択中の部署）</button>
 </div>
 </div>
 
@@ -1004,28 +998,27 @@ function renderView(){
 
 function fmtT(h){const hh=Math.floor(h),mm=Math.round((h-hh)*60);return `${hh}:${String(mm).padStart(2,'0')}`;}
 
-function printCalendars(){
-  buildPrintArea();
+function printCalendars(includePaid){
+  buildPrintArea(includePaid);
   setTimeout(()=>window.print(),300);
 }
 
 /* ===== 印刷エリア構築 ===== */
-function buildPrintArea(){
+function buildPrintArea(includePaid=true){
   let html='';
-  // 送付見本の並び順で、1部署ずつ1ページ生成
-  const printOrder=[2,0,1,3];
-  const printNames=['水木休み','水日休み','土日休み','日土変動'];
-  for(const di of printOrder){
-    const dname=DEPT_NAMES[di];
-    const summary=yearSummary(di);
-    html+=`<div class="print-page">`;
-    html+=`<div class="print-header"><span class="dept-label">${printNames[di]}</span><h2>2026〜2027年</h2></div>`;
-    html+=`<div class="months-grid">`;
-    MONTHS.forEach(([y,m],mi)=>{
-      html+=buildPrintMonth(y,m,di,`${y}年${MN[mi]}`);
-    });
-    html+=`</div>${buildPrintFooter(summary)}</div>`;
-  }
+  const di=dept,dname=DEPT_NAMES[di],target=settings[di].target;
+  const paidLabel=includePaid?'有給表示あり':'有給表示なし';
+  html+=`<div class="print-page"><div class="print-header"><h2>第49期 年間休日カレンダー　${dname}</h2><p>2026年6月1日 〜 2027年5月31日　　目標休日：${target}日　／　${paidLabel}</p></div>`;
+  html+=`<div class="print-legend">
+    <span><span class="print-legend-dot" style="background:#D6EAFA;border:.5px solid #378ADD"></span>定休日</span>
+    <span><span class="print-legend-dot" style="background:#FAE0E0;border:.5px solid #E24B4A"></span>祝日</span>
+    <span><span class="print-legend-dot" style="background:#D4EDCC;border:.5px solid #639922"></span>祝日+定休</span>
+    <span><span class="print-legend-dot" style="background:#FAE6C0;border:.5px solid #BA7517"></span>全休</span>
+    ${includePaid?'<span><span class="print-legend-dot" style="background:#E2E0FB;border:.5px solid #534AB7"></span>有給</span>':''}
+  </div><div class="months-grid">`;
+  MONTHS.forEach(([y,m],mi)=>{html+=buildPrintMonth(y,m,di,MN[mi],includePaid);});
+  html+=`</div></div>`;
+  html+=buildPrintStats(di,dname,target,includePaid);
   document.getElementById('print-area').innerHTML=html;
 }
 
@@ -1058,7 +1051,7 @@ function buildPrintFooter(s){
   </div>`;
 }
 
-function buildPrintMonth(y,m,di,label){
+function buildPrintMonth(y,m,di,label,includePaid=true){
   const first=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate();
   const evMap=getEventsMap();
   let html=`<div class="month-block">`;
@@ -1072,7 +1065,7 @@ function buildPrintMonth(y,m,di,label){
     const hname=HOLIDAYS_MASTER[key]||'';
     const ename=evMap[key]||'';
     let cls='mcell ';
-    if(paid)cls+='c-paid';
+    if(paid){if(includePaid)cls+='c-paid';}
     else if(adj==='work')cls+='c-work';
     else if(adj==='off')cls+='c-holiday';  // 手動追加の休日
     else if(ao)cls+='c-alloff';
@@ -1081,20 +1074,20 @@ function buildPrintMonth(y,m,di,label){
     else if(weekly)cls+='c-weekly';
     const sub=hname||ename;
     html+=`<div class="${cls}">${dd}${sub?`<span class="etag">${escapeHtml(sub)}</span>`:''}`;
-    if(paid)html+=`<span class="paid-mark">有給</span>`;
+    if(paid&&includePaid)html+=`<span class="etag">有給</span>`;
     html+=`</div>`;
   }
   html+=`</div></div>`;
   return html;
 }
 
-function buildPrintStats(di,dname,target){
+function buildPrintStats(di,dname,target,includePaid=true){
   let totalOff=0,totalPaid=0,totalWork=0,totalDim=0;
   let rows='';
   MONTHS.forEach(([y,m],i)=>{
     const dim=new Date(y,m+1,0).getDate();
     let off=0,paid=0;
-    for(let d=1;d<=dim;d++){const st=finalState(y,m,d,di);if(st.off)off++;if(st.paid)paid++;}
+    for(let d=1;d<=dim;d++){const st=finalState(y,m,d,di);if(st.off)off++;if(includePaid&&st.paid)paid++;}
     const work=dim-off-paid,hours=work*7.5,wAvg=hours/(dim/7);
     totalOff+=off;totalPaid+=paid;totalWork+=work;totalDim+=dim;
     rows+=`<tr><td>${MN[i]}</td><td>${dim}</td><td class="red">${off}</td><td class="blue">${paid}</td><td>${work}</td><td>${hours.toFixed(1)}</td><td>${fmtT(wAvg)}</td></tr>`;

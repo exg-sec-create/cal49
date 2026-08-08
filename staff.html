@@ -269,6 +269,7 @@ const DEFAULT_ADJS=[
 let adjs=DEFAULT_ADJS.map(a=>({...a}));
 let eventList=[...DEFAULT_EVENTS.map(e=>({...e}))];
 let dataLoaded=false;
+let firebaseStream=null;
 
 /* ===== クラウドストレージから読み込み（管理版と同じキー） ===== */
 /* ===== Firebase Realtime Database設定（管理版と同じ共有データ） ===== */
@@ -344,6 +345,30 @@ async function load(){
       ? `⚠ クラウド未接続（キャッシュ表示）: ${e.message}`
       : `⚠ クラウド未接続: ${e.message}`;
   }
+}
+
+/* Firebase REST Streamingで管理者の保存を全社員の画面へ即時反映する。 */
+async function startRealtimeSync(){
+  if(firebaseStream)firebaseStream.close();
+  try{
+    const config=await getFirebaseConfig();
+    firebaseStream=new EventSource(`${config.databaseURL}/${FIREBASE_DATA_PATH}.json`);
+    firebaseStream.addEventListener('put',event=>{
+      try{
+        const change=JSON.parse(event.data);
+        const record=change.path==='/'?change.data:null;
+        if(!record||!record.payload||!applyPayload(record.payload))return;
+        try{localStorage.setItem('cal49_cache',JSON.stringify(record.payload));}catch(e){}
+        const t=record.updated_at?new Date(record.updated_at).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'不明';
+        document.getElementById('sync-info').textContent=`✓ 自動同期: ${record.updated_by||'不明'} (${t})`;
+        renderDeptTabs();renderSummary();
+        if(viewMode==='month')renderMonth();else renderYear();
+      }catch(e){console.error('Firebase更新の反映に失敗しました:',e);}
+    });
+    firebaseStream.onerror=()=>{
+      document.getElementById('sync-info').textContent='⚠ 自動同期を再接続中...';
+    };
+  }catch(e){console.error('自動同期を開始できませんでした:',e);}
 }
 
 /* ===== ヘルパー ===== */
@@ -543,6 +568,7 @@ async function reloadData(){
   renderDeptTabs();
   renderSummary();
   renderMonth();
+  startRealtimeSync();
 })();
 </script>
 </body>
