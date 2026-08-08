@@ -1,0 +1,61 @@
+name: Deploy calendar to GitHub Pages
+
+on:
+  push:
+    branches: [main, work]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build static site and Firebase config
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+        run: |
+          test -n "$FIREBASE_API_KEY" || { echo "FIREBASE_API_KEY secret is not set" >&2; exit 1; }
+          test -n "$FIREBASE_DATABASE_URL" || { echo "FIREBASE_DATABASE_URL secret is not set" >&2; exit 1; }
+          mkdir -p _site
+          cp index.html staff.html _site/
+          touch _site/.nojekyll
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          config = {
+              "apiKey": os.environ["FIREBASE_API_KEY"],
+              "databaseURL": os.environ["FIREBASE_DATABASE_URL"].rstrip("/"),
+          }
+          Path("_site/firebase-config.json").write_text(
+              json.dumps(config, ensure_ascii=False), encoding="utf-8"
+          )
+          PY
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

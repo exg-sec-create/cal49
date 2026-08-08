@@ -1,4 +1,4 @@
 {
-  "apiKey": "YOUR_FIREBASE_WEB_API_KEY",
-  "databaseURL": "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com"
+  "apiKey": "CAL_49_SYSTEM_WEB_API_KEY",
+  "databaseURL": "COPY_THE_EXACT_REALTIME_DATABASE_URL_FROM_FIREBASE_CONSOLE"
 }

@@ -1,7 +1,11 @@
 # 第49期 年間休日カレンダー
 
 - `index.html`: Googleログインが必要な編集ページ
-- `staff.html`: Firebase上のカレンダーを表示する公開・閲覧専用ページ
+- `staff.html`: Firebase上のカレンダーを表示する公開・閲覧専用ページ（Realtime DatabaseのREST Streamingで自動同期）
+
+## PDF出力
+
+統計画面で選択中の部署を、従来の4列×3行の年間カレンダーと月別集計の2ページで出力できます。「有給表示あり」は有給日を紫色で表示して集計し、「有給表示なし」は有給日を通常の労働日として出力します。行事・祝日データはどちらの出力でも変更しません。
 
 ## セキュリティ上の前提
 
@@ -24,6 +28,25 @@ cp firebase-config.example.json firebase-config.json
 ```
 
 `firebase-config.json` の `apiKey` と `databaseURL` を対象環境の値に変更します。このファイルは `.gitignore` の対象です。公開時にはHTMLと同じ階層へデプロイしてください。なお、デプロイされた値そのものは公開情報になります。
+
+`firebase-config.json` はGitに含まれないため、Firebase Hosting以外へ自動デプロイする場合は、デプロイ元のシークレット等から公開ディレクトリに生成してください。ブラウザで `firebase-config.json` を直接開いてJSONが表示されること、`databaseURL` にFirebase Consoleの **Realtime Database** 画面に表示されるURLをそのまま設定したことを確認します。
+
+### GitHub Pages（現在の運用）
+
+GitHub PagesではFirebase Hosting専用の `/__/firebase/init.json` は存在しません。また、`firebase-config.json` は `.gitignore` 対象なので、ブランチから直接Pagesを配信する方式では公開先に存在せず、「クラウド未接続」になります。
+
+追加済みの `.github/workflows/deploy-pages.yml` は、GitHub Actionsで公開用の `firebase-config.json` を生成してPagesへ配信します。GitHubリポジトリの **Settings → Secrets and variables → Actions** で次のRepository secretsを登録してください。
+
+- `FIREBASE_API_KEY`: Firebase ConsoleのWebアプリ `exg_cal` に表示される `apiKey`
+- `FIREBASE_DATABASE_URL`: Realtime Database画面に表示されるURL（例：`https://cal-49-system-default-rtdb.firebaseio.com`）
+
+次に **Settings → Pages → Build and deployment → Source** を **GitHub Actions** に変更し、`Deploy calendar to GitHub Pages` ワークフローを実行します。公開後に `https://<owner>.github.io/<repository>/firebase-config.json` がHTTP 200になれば接続設定は完了です。Web APIキーとDatabase URLはブラウザから利用する公開設定であり、データ保護はRealtime Database Rulesで行います。
+
+### 「クラウド未接続」の確認
+
+- Firebase Hostingの場合：`https://<host>/__/firebase/init.json` がHTTP 200で、`databaseURL` を含むこと。含まれない場合は、対象プロジェクトでRealtime Databaseを作成してから再デプロイします。
+- Firebase Hosting以外の場合：`https://<host>/firebase-config.json` がHTTP 200で有効なJSONを返すこと。404の場合は、`.gitignore` 対象のローカル設定がデプロイに含まれていません。
+- `databaseURL がありません`と表示された場合：Webアプリ登録だけでは不十分で、Realtime Databaseの作成とURL設定が必要です。
 
 Firebase Consoleでは次を設定してください。
 
